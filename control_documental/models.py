@@ -33,7 +33,7 @@ class Documento(models.Model):
 
     codigo = models.CharField(max_length=20, unique=True, blank=True)
     nombre = models.CharField(max_length=100)
-    categoria = models.CharField(max_length=30, choices=Categoria.choices)
+    categoria = models.CharField(max_length=3, choices=Categoria.choices)
     estado = models.CharField(max_length=30, choices=Estado.choices, default=Estado.Vigente)
     archivo = models.FileField(upload_to=ruta_documento)
     
