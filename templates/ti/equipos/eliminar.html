@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block title %}Eliminar Equipo - ERP TI{% endblock %}
+{% block menu_equipos %}active{% endblock %}
+{% block page_title %}Eliminar Equipo{% endblock %}
+
+{% block content %}
+
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-exclamation-triangle fs-1 text-danger"></i>
+        <h4 class="mt-3">¿Estás seguro?</h4>
+        <p class="text-muted">Vas a eliminar el equipo <strong>{{ equipo.marca }} {{ equipo.modelo }}</strong> con número de serie <strong>{{ equipo.numero_serie }}</strong>. Esta acción no se puede deshacer.</p>
+        <form method="post">
+            {% csrf_token %}
+            <a href="/equipos/" class="btn btn-secondary me-2">
+                <i class="bi bi-x-circle"></i> Cancelar
+            </a>
+            <button type="submit" class="btn btn-danger">
+                <i class="bi bi-trash"></i> Si, eliminar
+            </button>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

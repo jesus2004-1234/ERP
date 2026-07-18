@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+
+{% block title %}Equipos - ERP TI{% endblock %}
+{% block menu_equipos %}active{% endblock %}
+{% block page_title %}Equipos{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-end mb-3">
+    <a href="/equipos/crear/" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Nuevo equipo
+    </a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-2">
+            <div class="col-md-4">
+                <input type="text" name="q" class="form-control"
+                       placeholder="Buscar por marca, modelo o serie..."
+                       value="{{ busqueda }}">
+            </div>
+            <div class="col-md-3">
+                <select name="tipo" class="form-select">
+                    <option value="">Todos los tipos</option>
+                    <option value=" Computadora" {% if tipo_actual == ' Computadora' %}selected{% endif %}>Computadora</option>
+                    <option value=" Impresora" {% if tipo_actual == ' Impresora' %}selected{% endif %}>Impresora</option>
+                    <option value=" Proyector" {% if tipo_actual == ' Proyector' %}selected{% endif %}>Proyector</option>
+                    <option value=" Teléfono" {% if tipo_actual == ' Teléfono' %}selected{% endif %}>Teléfono</option>
+                    <option value=" Teclado" {% if tipo_actual == ' Teclado' %}selected{% endif %}>Teclado</option>
+                    <option value=" Mouse" {% if tipo_actual == ' Mouse' %}selected{% endif %}>Mouse</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="estatus" class="form-select">
+                    <option value="">Todos los estatus</option>
+                    <option value="Activo" {% if estatus_actual == 'Activo' %}selected{% endif %}>Activo</option>
+                    <option value="Inactivo" {% if estatus_actual == 'Inactivo' %}selected{% endif %}>Inactivo</option>
+                    <option value="En reparación" {% if estatus_actual == 'En reparación' %}selected{% endif %}>En reparación</option>
+                    <option value="Baja" {% if estatus_actual == 'Baja' %}selected{% endif %}>Baja</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Buscar
+                </button>
+                <a href="/equipos/" class="btn btn-secondary">
+                    <i class="bi bi-x"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>Tipo</th>
+                    <th>Marca</th>
+                    <th>Modelo</th>
+                    <th>No. Serie</th>
+                    <th>Responsable</th>
+                    <th>Estatus</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for equipo in equipos %}
+                <tr>
+                    <td>{{ equipo.get_tipo_display }}</td>
+                    <td>{{ equipo.marca }}</td>
+                    <td>{{ equipo.modelo }}</td>
+                    <td>{{ equipo.numero_serie }}</td>
+                    <td>{{ equipo.responsable|default:"Sin responsable asignado" }}</td>
+                    <td>
+                        {% if equipo.estatus == 'Activo' %}
+                            <span class="badge bg-success">{{ equipo.get_estatus_display }}</span>
+                        {% elif equipo.estatus == 'En reparación' %}
+                            <span class="badge bg-warning text-dark">{{ equipo.get_estatus_display }}</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ equipo.get_estatus_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="/equipos/{{ equipo.pk }}/editar/" class="btn btn-sm btn-warning">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <a href="/equipos/{{ equipo.pk }}/eliminar/" class="btn btn-sm btn-danger">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-3">No hay equipos registrados</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

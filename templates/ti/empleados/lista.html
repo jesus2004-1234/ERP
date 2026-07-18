@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block title %}Empleados - ERP TI{% endblock %}
+{% block menu_empleados %}active{% endblock %}
+{% block page_title %}Empleados{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-end mb-3">
+    <a href="/empleados/crear/" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Nuevo empleado
+    </a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-2">
+            <div class="col-md-5">
+                <input type="text" name="q" class="form-control"
+                       placeholder="Buscar por nombre..."
+                       value="{{ busqueda }}">
+            </div>
+            <div class="col-md-4">
+                <select name="departamento" class="form-select">
+                    <option value="">Todos los departamentos</option>
+                    {% for depto in departamentos %}
+                    <option value="{{ depto }}" {% if departamento == depto %}selected{% endif %}>
+                        {{ depto }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Buscar
+                </button>
+                <a href="/empleados/" class="btn btn-secondary">
+                    <i class="bi bi-x"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>Nombre</th>
+                    <th>Departamento</th>
+                    <th class="text-center">Computadora</th>
+                    <th class="text-center">Teléfono asignado</th>
+                    <th class="text-center">Línea telefónica</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for empleado in empleados %}
+                <tr>
+                    <td>{{ empleado.nombre }} {{ empleado.apellido }}</td>
+                    <td>{{ empleado.departamento }}</td>
+                    <td class="text-center">
+                        {% if empleado.tiene_computadora %}
+                            <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                        {% else %}
+                            <i class="bi bi-x-circle-fill text-danger fs-5"></i>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if empleado.tiene_telefono %}
+                            <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                        {% else %}
+                            <i class="bi bi-x-circle-fill text-danger fs-5"></i>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if empleado.tiene_linea_telefonica %}
+                            <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                        {% else %}
+                            <i class="bi bi-x-circle-fill text-danger fs-5"></i>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="/empleados/{{ empleado.pk }}/editar/" class="btn btn-sm btn-warning">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <a href="/empleados/{{ empleado.pk }}/eliminar/" class="btn btn-sm btn-danger">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-3">No hay empleados registrados</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

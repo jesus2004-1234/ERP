@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Asignación - ERP TI{% endblock %}
+{% block menu_asignaciones %}active{% endblock %}
+{% block page_title %}Editar Asignación{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Empleado</label>
+                    <select name="empleado" class="form-select" required>       
+                        {% for empleado in empleados %}
+                            <option value="{{ empleado.id }}" {% if asignacion.empleado.id == empleado.id %}selected{% endif %}>
+                                {{ empleado.nombre }} {{ empleado.apellido }}
+                            </option>
+                        {% endfor %}    
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Equipo</label>
+                    <select name="equipo" class="form-select" required>       
+                        {% for equipo in equipos %}
+                            <option value="{{ equipo.id }}" {% if asignacion.equipo.id == equipo.id %}selected{% endif %}>
+                                {{ equipo.marca }} {{ equipo.modelo }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label">Entregado por</label>
+                    <input type="text" name="entregado_por" class="form-control" value="{{ asignacion.entregado_por }}">
+                </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Estatus</label>
+                        <select name="estatus" class="form-select" required>
+                            <option value="Asignado" {% if asignacion.estatus == 'Asignado' %}selected{% endif %}>Asignado</option>
+                            <option value="Devuelto" {% if asignacion.estatus == 'Devuelto' %}selected{% endif %}>Devuelto</option>
+                        </select>
+                    </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Fecha de asignación</label>
+                    <input type="date" name="fecha_asignacion" class="form-control" value="{{ asignacion.fecha_asignacion|date:'Y-m-d' }}" required>
+                </div>
+                <div class="col-md-6 mb-3"> 
+                    <label class="form-label">Fecha de devolución</label>
+                    <input type="date" name="fecha_devolucion" class="form-control" value="{{ asignacion.fecha_devolucion|date:'Y-m-d' }}">
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-save"></i> Actualizar
+                    </button>
+                    <a href="/asignaciones/" class="btn btn-secondary">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </a>
+                </div>  
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block title %}Nueva Asignación - ERP TI{% endblock %}
+{% block menu_asignaciones %}active{% endblock %}
+{% block page_title %}Nueva Asignación{% endblock %}
+
+{% block content %}
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Equipo</label>
+                    <select name="equipo" class="form-select" required>
+                        <option value="">Selecciona un equipo</option>
+                        {% for equipo in equipos %}
+                        <option value="{{ equipo.pk }}">{{ equipo.marca }} {{ equipo.modelo }} ({{ equipo.numero_serie }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Empleado</label>
+                    <select name="empleado" class="form-select" required>
+                        <option value="">Selecciona un empleado</option>
+                        {% for empleado in empleados %}
+                        <option value="{{ empleado.pk }}">{{ empleado.nombre }} {{ empleado.apellido }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Fecha devolución</label>
+                    <input type="date" name="fecha_devolucion" class="form-control">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Estatus</label>
+                    <select name="estatus" class="form-select" required>
+                        <option value="Asignado">Asignado</option>
+                        <option value="Devuelto">Devuelto</option>
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Entregado por</label>
+                    <input type="text" name="entregado_por" class="form-control">
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> Guardar
+                </button>
+                <a href="/asignaciones/" class="btn btn-secondary">
+                    <i class="bi bi-x-circle"></i> Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

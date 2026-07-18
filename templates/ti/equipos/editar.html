@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Equipo - ERP TI{% endblock %}
+{% block menu_equipos %}active{% endblock %}
+{% block page_title %}Editar Equipo{% endblock %}
+
+{% block content %}
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Tipo</label>
+                    <select name="tipo" class="form-select" required>
+                        <option value="Computadora" {% if equipo.tipo == 'Computadora' %}selected{% endif %}>Computadora</option>
+                        <option value="Impresora" {% if equipo.tipo == 'Impresora' %}selected{% endif %}>Impresora</option>
+                        <option value="Proyector" {% if equipo.tipo == 'Proyector' %}selected{% endif %}>Proyector</option>
+                        <option value="Teléfono" {% if equipo.tipo == 'Teléfono' %}selected{% endif %}>Teléfono</option>
+                        <option value="Teclado" {% if equipo.tipo == 'Teclado' %}selected{% endif %}>Teclado</option>
+                        <option value="Mouse" {% if equipo.tipo == 'Mouse' %}selected{% endif %}>Mouse</option>
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Marca</label>
+                    <input type="text" name="marca" class="form-control" value="{{ equipo.marca }}" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Modelo</label>
+                    <input type="text" name="modelo" class="form-control" value="{{ equipo.modelo }}" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Número de serie</label>
+                    <input type="text" name="numero_serie" class="form-control" value="{{ equipo.numero_serie }}" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Sistema operativo</label>
+                    <input type="text" name="sistema_operativo" class="form-control" value="{{ equipo.sistema_operativo|default:'' }}">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Estatus</label>
+                    <select name="estatus" class="form-select" required>
+                        <option value="Activo" {% if equipo.estatus == 'Activo' %}selected{% endif %}>Activo</option>
+                        <option value="Inactivo" {% if equipo.estatus == 'Inactivo' %}selected{% endif %}>Inactivo</option>
+                        <option value="En reparación" {% if equipo.estatus == 'En reparación' %}selected{% endif %}>En reparación</option>
+                        <option value="Baja" {% if equipo.estatus == 'Baja' %}selected{% endif %}>Baja</option>
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Responsable</label>
+                    <select name="responsable" class="form-select">
+                        <option value="">Sin responsable</option>
+                        {% for empleado in empleados %}
+                        <option value="{{ empleado.pk }}" {% if equipo.responsable.pk == empleado.pk %}selected{% endif %}>
+                            {{ empleado.nombre }} {{ empleado.apellido }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Departamento</label>
+                    <select name="departamento" class="form-select" required>
+                        <option value="">Selecciona un departamento</option>
+                        <option value="Direccion General" {% if empleado.departamento == "Direccion General" %}selected{% endif %}>Direccion General</option>
+                        <option value="Gerencia de Administracion y Finanzas" {% if empleado.departamento == "Gerencia de Administracion y Finanzas" %}selected{% endif %}>Gerencia de Administracion y Finanzas</option>
+                        <option value="Conexion Comercial" {% if empleado.departamento == "Conexion Comercial" %}selected{% endif %}>Conexion Comercial</option>
+                        <option value="Planeacion y Control Financiero" {% if empleado.departamento == "Planeacion y Control Financiero" %}selected{% endif %}>Planeacion y Control Financiero</option>
+                        <option value="Capital Humano y Gestion Integral" {% if empleado.departamento == "Capital Humano y Gestion Integral" %}selected{% endif %}>Capital Humano y Gestion Integral</option>
+                        <option value="Operaciones y Servicios Generales" {% if empleado.departamento == "Operaciones y Servicios Generales" %}selected{% endif %}>Operaciones y Servicios Generales</option>
+                        <option value="Innovación y Tecnología" {% if empleado.departamento == "Innovación y Tecnología" %}selected{% endif %}>Innovación y Tecnología</option>
+                    </select>
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-warning">
+                    <i class="bi bi-save"></i> Actualizar
+                </button>
+                <a href="/equipos/" class="btn btn-secondary">
+                    <i class="bi bi-x-circle"></i> Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

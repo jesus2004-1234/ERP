@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Correo / Línea - ERP TI{% endblock %}
+{% block menu_correos %}active{% endblock %}
+{% block page_title %}Editar Correo / Línea{% endblock %}
+
+{% block content %}
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Tipo</label>
+                    <select name="tipo" class="form-select" required>
+                        <option value="Correo" {% if correo.tipo == 'Correo' %}selected{% endif %}>Correo electrónico</option>
+                        <option value="Linea" {% if correo.tipo == 'Linea' %}selected{% endif %}>Línea telefónica</option>
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Correo / Número</label>
+                    <input type="text" name="correo_asignado" class="form-control" 
+                           value="{{ correo.correo_asignado }}" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Empleado</label>
+                    <select name="empleado" class="form-select">
+                        <option value="">Sin empleado asignado</option>
+                        {% for empleado in empleados %}
+                        <option value="{{ empleado.pk }}" {% if correo.empleado.pk == empleado.pk %}selected{% endif %}>
+                            {{ empleado.nombre }} {{ empleado.apellido }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Estatus</label>
+                    <select name="estatus" class="form-select" required>
+                        <option value="Disponible" {% if correo.estatus == 'Disponible' %}selected{% endif %}>Disponible</option>
+                        <option value="Ocupado" {% if correo.estatus == 'Ocupado' %}selected{% endif %}>Ocupado</option>
+                    </select>
+                </div>
+                <div class="col-12 mb-3">
+                    <label class="form-label">Observaciones</label>
+                    <textarea name="observaciones" class="form-control" rows="3">{{ correo.observaciones|default:'' }}</textarea>
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-warning">
+                    <i class="bi bi-save"></i> Actualizar
+                </button>
+                <a href="/correos/" class="btn btn-secondary">
+                    <i class="bi bi-x-circle"></i> Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

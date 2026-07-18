@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Mantenimiento - ERP TI{% endblock %}
+{% block menu_mantenimientos %}active{% endblock %}
+{% block page_title %}Editar Mantenimiento{% endblock %}
+
+{% block content %}
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Equipo</label>
+                    <select name="equipo" class="form-select" required>
+                        <option value="">Selecciona un equipo</option>
+                        {% for equipo in equipos %}
+                        <option value="{{ equipo.pk }}" {% if mantenimiento.equipo.pk == equipo.pk %}selected{% endif %}>
+                            {{ equipo.marca }} {{ equipo.modelo }} ({{ equipo.numero_serie }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Tipo</label>
+                    <select name="tipo" class="form-select" required>
+                        <option value="Preventivo" {% if mantenimiento.tipo == 'Preventivo' %}selected{% endif %}>Preventivo</option>
+                        <option value="Correctivo" {% if mantenimiento.tipo == 'Correctivo' %}selected{% endif %}>Correctivo</option>
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Estatus</label>
+                    <select name="estatus" class="form-select" required>
+                        <option value="Vencido" {% if mantenimiento.estatus == 'Vencido' %}selected{% endif %}>Vencido</option>
+                        <option value="Pendiente" {% if mantenimiento.estatus == 'Pendiente' %}selected{% endif %}>Pendiente</option>
+                        <option value="Al_dia" {% if mantenimiento.estatus == 'Al_dia' %}selected{% endif %}>Al dia</option>
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Realizado por</label>
+                    <input type="text" name="realizado_por" class="form-control" value="{{ mantenimiento.realizado_por|default:'' }}">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Última fecha de mantenimiento</label>
+                    <input type="date" name="ultima_fecha_mantenimiento" class="form-control" value="{{ mantenimiento.ultima_fecha_mantenimiento|date:'Y-m-d'|default:'' }}">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Próxima fecha de mantenimiento</label>
+                    <input type="date" name="proxima_fecha_mantenimiento" class="form-control" value="{{ mantenimiento.proxima_fecha_mantenimiento|date:'Y-m-d'|default:'' }}">
+                </div>
+                <div class="col-12 mb-3">
+                    <label class="form-label">Descripción</label>
+                    <textarea name="descripcion" class="form-control" rows="3">{{ mantenimiento.descripcion|default:'' }}</textarea>
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-warning">
+                    <i class="bi bi-save"></i> Actualizar
+                </button>
+                <a href="/mantenimientos/" class="btn btn-secondary">
+                    <i class="bi bi-x-circle"></i> Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+
+{% block title %}Consumibles - ERP TI{% endblock %}
+{% block menu_consumibles %}active{% endblock %}
+{% block page_title %}Consumibles{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-end mb-3">
+    <a href="/consumibles/crear/" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Nuevo consumible
+    </a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-2">
+            <div class="col-md-4">
+                <input type="text" name="q" class="form-control"
+                       placeholder="Buscar por nombre..."
+                       value="{{ busqueda }}">
+            </div>
+            <div class="col-md-3">
+                <select name="categoria" class="form-select">
+                    <option value="">Todas las categorías</option>
+                    <option value="Papelería" {% if categoria_actual == 'Papelería' %}selected{% endif %}>Papelería</option>
+                    <option value="Tóner" {% if categoria_actual == 'Tóner' %}selected{% endif %}>Tóner</option>
+                    <option value="Cable" {% if categoria_actual == 'Cable' %}selected{% endif %}>Cable</option>
+                    <option value="Accesorio" {% if categoria_actual == 'Accesorio' %}selected{% endif %}>Accesorio</option>
+                    <option value="Otro" {% if categoria_actual == 'Otro' %}selected{% endif %}>Otro</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="stock_bajo" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="1" {% if stock_bajo %}selected{% endif %}>Stock bajo</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Buscar
+                </button>
+                <a href="/consumibles/" class="btn btn-secondary">
+                    <i class="bi bi-x"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>Nombre</th>
+                    <th>Categoría</th>
+                    <th>Stock actual</th>
+                    <th>Unidad</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for consumible in consumibles %}
+                <tr>
+                    <td>{{ consumible.nombre }}</td>
+                    <td>{{ consumible.get_categoria_display }}</td>
+                    <td>{{ consumible.stock_actual }}</td>
+                    <td>{{ consumible.unidad_medida|default:"-" }}</td>
+                    <td>
+                        {% if consumible.stock_Actual == 0 %}
+                            <span class="badge bg-danger">Agotado</span>
+                        {% else %}
+                            <span class="badge bg-success">Disponible</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="/consumibles/{{ consumible.pk }}/editar/" class="btn btn-sm btn-warning">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <a href="/consumibles/{{ consumible.pk }}/eliminar/" class="btn btn-sm btn-danger">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-3">No hay consumibles registrados</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

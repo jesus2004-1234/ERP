@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block title %}Correos y Líneas - ERP TI{% endblock %}
+{% block menu_correos %}active{% endblock %}
+{% block page_title %}Correos y Líneas Telefónicas{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-end mb-3">
+    <a href="/correos/crear/" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Agregar
+    </a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-2">
+            <div class="col-md-4">
+                <input type="text" name="q" class="form-control"
+                       placeholder="Buscar por correo, número o empleado..."
+                       value="{{ busqueda }}">
+            </div>
+            <div class="col-md-2">
+                <select name="tipo" class="form-select">
+                    <option value="">Todos los tipos</option>
+                    <option value="Correo" {% if tipo_actual == 'Correo' %}selected{% endif %}>Correo electrónico</option>
+                    <option value="Linea" {% if tipo_actual == 'Linea' %}selected{% endif %}>Línea telefónica</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="estatus" class="form-select">
+                    <option value="">Todos los estatus</option>
+                    <option value="Disponible" {% if estatus_actual == 'Disponible' %}selected{% endif %}>Disponible</option>
+                    <option value="Ocupado" {% if estatus_actual == 'Ocupado' %}selected{% endif %}>Ocupado</option>
+                </select>
+            </div>
+            <div class="col-md-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Buscar
+                </button>
+                <a href="/correos/" class="btn btn-secondary">
+                    <i class="bi bi-x"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>Tipo</th>
+                    <th>Correo / Número</th>
+                    <th>Empleado</th>
+                    <th>Fecha asignación</th>
+                    <th>Estatus</th>
+                    <th>Observaciones</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for correo in correos %}
+                <tr>
+                    <td>
+                        {% if correo.tipo == 'Correo' %}
+                            <i class="bi bi-envelope text-primary"></i> Correo
+                        {% else %}
+                            <i class="bi bi-telephone text-success"></i> Línea
+                        {% endif %}
+                    </td>
+                    <td>{{ correo.correo_asignado }}</td>
+                    <td>{{ correo.empleado|default:"-" }}</td>
+                    <td>{{ correo.fecha_asignacion|date:"d/m/Y" }}</td>
+                    <td>
+                        {% if correo.estatus == 'Disponible' %}
+                            <span class="badge bg-success">Disponible</span>
+                        {% else %}
+                            <span class="badge bg-danger">Ocupado</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ correo.observaciones|default:"-" }}</td>
+                    <td>
+                        <a href="/correos/{{ correo.pk }}/editar/" class="btn btn-sm btn-warning">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <a href="/correos/{{ correo.pk }}/eliminar/" class="btn btn-sm btn-danger">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-3">No hay registros</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

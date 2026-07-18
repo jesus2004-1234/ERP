@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Empleado - ERP TI{% endblock %}
+{% block menu_empleados %}active{% endblock %}
+{% block page_title %}Editar Empleado{% endblock %}
+
+{% block content %}
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Nombre</label>
+                    <input type="text" name="nombre" class="form-control" value="{{ empleado.nombre }}" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Apellido</label>
+                    <input type="text" name="apellido" class="form-control" value="{{ empleado.apellido }}" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Departamento</label>
+                    <select name="departamento" class="form-select" required>
+                        <option value="">Selecciona un departamento</option>
+                        <option value="Direccion General" {% if empleado.departamento == "Direccion General" %}selected{% endif %}>Direccion General</option>
+                        <option value="Gerencia de Administracion y Finanzas" {% if empleado.departamento == "Gerencia de Administracion y Finanzas" %}selected{% endif %}>Gerencia de Administracion y Finanzas</option>
+                        <option value="Conexion Comercial" {% if empleado.departamento == "Conexion Comercial" %}selected{% endif %}>Conexion Comercial</option>
+                        <option value="Planeacion y Control Financiero" {% if empleado.departamento == "Planeacion y Control Financiero" %}selected{% endif %}>Planeacion y Control Financiero</option>
+                        <option value="Capital Humano y Gestion Integral" {% if empleado.departamento == "Capital Humano y Gestion Integral" %}selected{% endif %}>Capital Humano y Gestion Integral</option>
+                        <option value="Operaciones y Servicios Generales" {% if empleado.departamento == "Operaciones y Servicios Generales" %}selected{% endif %}>Operaciones y Servicios Generales</option>
+                        <option value="Innovación y Tecnología" {% if empleado.departamento == "Innovación y Tecnología" %}selected{% endif %}>Innovación y Tecnología</option>
+                    </select>
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-warning">
+                    <i class="bi bi-save"></i> Actualizar
+                </button>
+                <a href="/empleados/" class="btn btn-secondary">
+                    <i class="bi bi-x-circle"></i> Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
