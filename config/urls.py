@@ -37,6 +37,10 @@ urlpatterns = [
     path('consumibles/<int:pk>/editar/', views.consumible_editar, name='consumible_editar'),
     path('consumibles/<int:pk>/eliminar/', views.consumible_eliminar, name='consumible_eliminar'),
     path('tickets/', views.tickets_lista, name='tickets_lista'),
+    path('control_documental/', include('control_documental.urls')),
 
    
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
