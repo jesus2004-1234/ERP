@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'colorfield',
     'crispy_forms',
     'crispy_bootstrap4',
+    'control_documental',
     
 ]
 
