@@ -9,6 +9,10 @@ def ruta_documento(instance, filename):
 
 class Documento(models.Model):
     def save(self, *args, **kwargs):
+        if self.archivo and not self.archivo.name:
+            self.archivo = os.path.splitext(os.path.basename(self.archivo.name))[0]
+        if not self.estado:
+            self.estado = self.Estado.VIGENTE
         if not self.codigo:
             ultimo_codigo = Documento.objects.filter(modulo=self.modulo, categoria=self.categoria).aggregate(Max('codigo'))['codigo__max']
             if ultimo_codigo:
@@ -41,6 +45,8 @@ class Documento(models.Model):
     categoria = models.CharField(max_length=3, choices=Categoria.choices)
     estado = models.CharField(max_length=30, choices=Estado.choices, default=Estado.VIGENTE)
     archivo = models.FileField(upload_to=ruta_documento)
+    activo = models.BooleanField(default=True)
+    fecha_carga = models.DateTimeField(auto_now_add=True)
     
     class Meta:
         verbose_name = "Documento"
