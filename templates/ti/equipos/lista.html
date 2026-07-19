@@ -60,7 +60,6 @@
                     <th>Marca</th>
                     <th>Modelo</th>
                     <th>No. Serie</th>
-                    <th>Responsable</th>
                     <th>Estatus</th>
                     <th>Acciones</th>
                 </tr>
@@ -72,7 +71,6 @@
                     <td>{{ equipo.marca }}</td>
                     <td>{{ equipo.modelo }}</td>
                     <td>{{ equipo.numero_serie }}</td>
-                    <td>{{ equipo.responsable|default:"Sin responsable asignado" }}</td>
                     <td>
                         {% if equipo.estatus == 'Activo' %}
                             <span class="badge bg-success">{{ equipo.get_estatus_display }}</span>

@@ -1,79 +1,421 @@
 {% extends 'base.html' %}
 
-{% block title %}Control Documental - ERP INNOVACION Y TECNOLOGIA{% endblock %}
-{% block menu_control_documental %}active{% endblock %}
-{% block page_title %}Control Documental{% endblock %}
+{% block title %}
+Control Documental - ERP INNOVACION Y TECNOLOGIA
+{% endblock %}
+
+
+{% block menu_control_documental %}
+active
+{% endblock %}
+
+
+{% block page_title %}
+Control Documental
+{% endblock %}
+
+
 
 {% block content %}
 
-<div class= "d-flex justify-content-end mb-3">
-    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalDocumento">
-        <i class="bi bi-upload"></i> Subir documento
+
+<!-- BOTÓN SUBIR DOCUMENTO -->
+
+<div class="d-flex justify-content-end mb-4">
+
+    <button class="btn btn-primary"
+            data-bs-toggle="modal"
+            data-bs-target="#modalDocumento">
+
+        <i class="bi bi-upload"></i>
+        Subir documento
+
     </button>
+
 </div>
 
-<div class="modal fade" id="modalDocumento">
+
+
+
+<!-- MODAL SUBIR DOCUMENTO -->
+
+<div class="modal fade"
+     id="modalDocumento"
+     tabindex="-1">
+
 
     <div class="modal-dialog">
 
+
         <div class="modal-content">
 
-            <form
-                method="POST"
-                enctype="multipart/form-data">
+
+            <form method="POST"
+                  enctype="multipart/form-data">
+
 
                 {% csrf_token %}
 
+
+
                 <div class="modal-header">
 
-                    <h5>Subir documento</h5>
+
+                    <h5 class="modal-title">
+                        Subir documento
+                    </h5>
+
+
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal">
+
+                    </button>
+
 
                 </div>
+
+
+
+
 
                 <div class="modal-body">
 
-                    <label>Categoría</label>
 
-                    <select
-                        name="categoria"
-                        class="form-select">
-                        <option value="">Selecciona una categoría</option>
-                        {% for valor,texto in categorias %}
-                            <option value="{{ valor }}">
-                                {{ texto }}
+
+                    <div class="mb-3">
+
+
+                        <label class="form-label">
+                            Categoría
+                        </label>
+
+
+                        <select name="categoria"
+                                class="form-select"
+                                required>
+
+
+                            <option value="">
+                                Selecciona una categoría
                             </option>
-                        {% endfor %}
 
-                    </select>
 
-                    <br>
 
-                    <label>Archivo</label>
+                            {% for valor,texto in categorias %}
 
-                    <input
-                        type="file"
-                        name="archivo"
-                        class="form-control"
-                        required>
+
+                            <option value="{{ valor }}">
+
+                                {{ texto }}
+
+                            </option>
+
+
+                            {% endfor %}
+
+
+                        </select>
+
+
+                    </div>
+
+
+
+
+
+                    <div class="mb-3">
+
+
+                        <label class="form-label">
+                            Archivo
+                        </label>
+
+
+                        <input type="file"
+                               name="archivo"
+                               class="form-control"
+                               required>
+
+
+                    </div>
+
+
 
                 </div>
+
+
+
+
 
                 <div class="modal-footer">
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-save"></i> Guardar
-                        </button>
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                            <i class="bi bi-x-circle"></i> Cancelar
-                        </button>
+
+
+                    <button type="submit"
+                            class="btn btn-primary">
+
+
+                        <i class="bi bi-save"></i>
+                        Guardar
+
+
+                    </button>
+
+
+
+
+                    <button type="button"
+                            class="btn btn-secondary"
+                            data-bs-dismiss="modal">
+
+
+                        Cancelar
+
+
+                    </button>
+
 
                 </div>
+
+
 
             </form>
 
+
         </div>
+
 
     </div>
 
+
 </div>
+
+
+
+
+
+
+
+<!-- LISTADO DE DOCUMENTOS -->
+
+
+<div class="row">
+
+
+
+{% for documento in documentos %}
+
+
+
+<div class="col-md-4 mb-4">
+
+
+
+    <div class="card shadow-sm h-100">
+
+
+
+        <div class="card-body d-flex flex-column">
+
+
+
+            <div class="text-center mb-3">
+
+
+                <i class="bi bi-file-earmark-text"
+                   style="font-size:45px;color:#2a3e4d">
+
+                </i>
+
+
+            </div>
+
+
+
+
+
+            <h5 class="card-title text-center">
+
+
+                {{ documento.nombre }}
+
+
+            </h5>
+
+            <p>
+
+
+                <strong>
+                    Estado:
+                </strong>
+
+
+                {% if documento.estado == "VIGENTE" %}
+
+
+                    <span class="badge bg-success">
+
+                        {{ documento.get_estado_display }}
+
+                    </span>
+
+
+                {% else %}
+
+
+                    <span class="badge bg-secondary">
+
+                        {{ documento.get_estado_display }}
+
+                    </span>
+
+
+                {% endif %}
+
+
+            </p>
+
+             <div class="mt-auto">
+
+
+
+
+
+                <!-- VER DOCUMENTO -->
+
+
+                <a href="{{ documento.archivo.url }}"
+                   class="btn btn-primary btn-sm">
+
+
+                    <i class="bi bi-eye"></i>
+
+                    Ver
+
+
+                </a>
+
+
+
+
+
+
+
+                <!-- CAMBIAR A OBSOLETO -->
+
+
+                {% if documento.estado == "VIGENTE" %}
+
+
+
+                <form method="POST"
+                      action="{% url 'cambiar_estado' documento.pk %}"
+                      class="d-inline">
+
+
+                    {% csrf_token %}
+
+
+
+                    <button type="submit"
+                            class="btn btn-warning btn-sm"
+                            onclick="return confirm('¿Está seguro de marcar este documento como obsoleto? Esta acción no se puede revertir.');">
+
+
+                        <i class="bi bi-exclamation-triangle"></i>
+
+                        Obsoleto
+
+
+                    </button>
+
+
+                </form>
+
+
+
+                {% endif %}
+
+
+
+
+
+
+
+                <!-- OCULTAR DOCUMENTO -->
+
+
+                <form method="POST"
+                      action="{% url 'ocultar_documento' documento.pk %}"
+                      class="d-inline">
+
+
+                    {% csrf_token %}
+
+
+
+                    <button type="submit"
+                            class="btn btn-danger btn-sm"
+                            onclick="return confirm('¿Desea eliminar este documento?');">
+
+
+                        <i class="bi bi-trash"></i>
+
+                        Eliminar
+
+
+                    </button>
+
+
+
+                </form>
+
+
+
+
+
+            </div>
+
+
+
+
+        </div>
+
+
+    </div>
+
+
+
+</div>
+
+
+
+
+
+{% empty %}
+
+
+
+
+<div class="col-12">
+    
+
+    <div class="alert alert-info text-center">
+
+        No hay documentos disponibles.
+</div>
+
+
+
+
+{% endfor %}
+
+
+
+
+</div>
+
+
+
+
 {% endblock %}

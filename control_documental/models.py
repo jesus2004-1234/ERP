@@ -46,7 +46,7 @@ class Documento(models.Model):
     estado = models.CharField(max_length=30, choices=Estado.choices, default=Estado.VIGENTE)
     archivo = models.FileField(upload_to=ruta_documento)
     activo = models.BooleanField(default=True)
-    fecha_carga = models.DateTimeField(auto_now_add=True)
+    
     
     class Meta:
         verbose_name = "Documento"
