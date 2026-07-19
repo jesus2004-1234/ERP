@@ -59,8 +59,6 @@ class Equipo(models.Model):
     numero_serie      = models.CharField(max_length=100, unique=True)
     sistema_operativo = models.CharField(max_length=100, blank=True, null=True)
     estatus           = models.CharField(max_length=20, choices=EstatusEquipo.choices, default=EstatusEquipo.ACTIVO)
-    responsable       = models.ForeignKey(Empleado, on_delete=models.SET_NULL, null=True, blank=True)
-    departamento      = models.CharField(max_length=100, blank=True, null=True)
 
     class Meta:
         verbose_name = "Equipo"

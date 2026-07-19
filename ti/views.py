@@ -175,8 +175,7 @@ def equipo_crear(request):
             numero_serie=request.POST['numero_serie'],
             sistema_operativo=request.POST.get('sistema_operativo', ''),
             estatus=request.POST['estatus'],
-            responsable_id=request.POST.get('responsable') or None,
-            departamento=request.POST.get('departamento', ''),
+
         )
         messages.success(request, 'Equipo creado correctamente.')
         return redirect('equipos_lista')
@@ -195,8 +194,6 @@ def equipo_editar(request, pk):
         equipo.numero_serie      = request.POST['numero_serie']
         equipo.sistema_operativo = request.POST.get('sistema_operativo', '')
         equipo.estatus           = request.POST['estatus']
-        equipo.responsable_id    = request.POST.get('responsable') or None
-        equipo.departamento      = request.POST.get('departamento', '')
         equipo.save()
         messages.success(request, 'Equipo actualizado correctamente.')
         return redirect('equipos_lista')

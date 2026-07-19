@@ -11,8 +11,8 @@ class EmpleadoAdmin(admin.ModelAdmin):
 
 @admin.register(Equipo)
 class EquipoAdmin(admin.ModelAdmin):
-    list_display  = ('tipo', 'marca', 'modelo', 'numero_serie', 'estatus', 'responsable')
-    list_filter   = ('tipo', 'estatus', 'departamento')
+    list_display  = ('tipo', 'marca', 'modelo', 'numero_serie', 'estatus',)
+    list_filter   = ('tipo', 'estatus',)
     search_fields = ('marca', 'modelo', 'numero_serie')
 
 
