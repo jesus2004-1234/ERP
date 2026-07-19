@@ -19,18 +19,14 @@
                     <label class="form-label">Apellido</label>
                     <input type="text" name="apellido" class="form-control" required>
                 </div>
-                
+
                 <div class="col-md-6 mb-3">
                     <label class="form-label">Departamento</label>
-                    <select name="departamento" class="form-select requiered">
+                    <select name="departamento" class="form-select" required>
                         <option value="">Selecciona un departamento</option>
-                        <option value="Direccion General">Direccion General</option>
-                        <option value="Gerencia de Administracion y Finanzas">Gerencia de Administracion y Finanzas</option>
-                        <option value="Conexion Comercial">Conexion Comercial</option>
-                        <option value="Planeacion y Control Financiero">Planeacion y Control Financiero</option>
-                        <option value="Capital Humano y Gestion Integral">Capital Humano y Gestion Integral</option>
-                        <option value="Operaciones y Servicios Generales">Operaciones y Servicios Generales</option>
-                        <option value="Innovación y Tecnología">Innovación y Tecnología</option>
+                        {% for valor, texto in departamentos %}
+                        <option value="{{ valor }}">{{ texto }}</option>
+                        {% endfor %}
                     </select>
                 </div>
             </div>

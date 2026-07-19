@@ -3,9 +3,19 @@ from django.utils import timezone
 
 
 class Empleado(models.Model):
+
+    class Departamento(models.TextChoices):
+        DIRECCION_GENERAL = 'Direccion General', 'Dirección General'
+        GERENCIA_ADMIN_FINANZAS = 'Gerencia de Administracion y Finanzas', 'Gerencia de Administración y Finanzas'
+        CONEXION_COMERCIAL = 'Conexion Comercial', 'Conexión Comercial'
+        PLANEACION_CONTROL_FINANCIERO = 'Planeacion y Control Financiero', 'Planeación y Control Financiero'
+        CAPITAL_HUMANO = 'Capital Humano y Gestion Integral', 'Capital Humano y Gestión Integral'
+        OPERACIONES_SERVICIOS = 'Operaciones y Servicios Generales', 'Operaciones y Servicios Generales'
+        INNOVACION_TECNOLOGIA = 'Innovación y Tecnología', 'Innovación y Tecnología'
+
     nombre             = models.CharField(max_length=100)
     apellido           = models.CharField(max_length=100)
-    departamento       = models.CharField(max_length=100)
+    departamento       = models.CharField(max_length=100, choices=Departamento.choices)
 
     def __str__(self):
         return f"{self.nombre} {self.apellido}"

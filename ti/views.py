@@ -84,9 +84,9 @@ def empleados_lista(request):
             models.Q(apellido__icontains=busqueda)
         )
     if departamento:
-        empleados = empleados.filter(departamento__icontains=departamento)
+        empleados = empleados.filter(departamento=departamento)
 
-    departamentos = Empleado.objects.values_list('departamento', flat=True).distinct()
+    departamentos = Empleado.Departamento.choices
 
     return render(request, 'ti/empleados/lista.html', {
         'empleados':     empleados,
@@ -107,7 +107,7 @@ def empleado_crear(request):
         )
         messages.success(request, 'Empleado creado correctamente.')
         return redirect('empleados_lista')
-    return render(request, 'ti/empleados/crear.html')
+    return render(request, 'ti/empleados/crear.html', {'departamentos':Empleado.Departamento.choices,})
 
 
 @never_cache
@@ -121,7 +121,7 @@ def empleado_editar(request, pk):
         empleado.save()
         messages.success(request, 'Empleado actualizado correctamente.')
         return redirect('empleados_lista')
-    return render(request, 'ti/empleados/editar.html', {'empleado': empleado})
+    return render(request, 'ti/empleados/editar.html', {'empleado': empleado, 'departamentos':Empleado.Departamento.choices,})
 
 
 @never_cache

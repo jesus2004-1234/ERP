@@ -55,3 +55,7 @@ class Documento(models.Model):
 
     def __str__(self):
         return f"{self.codigo} - {self.nombre}"
+
+@property
+def extension(self):
+    return os.path.splitext(self.archivo.name)[1].lower()

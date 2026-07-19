@@ -23,9 +23,9 @@
             <div class="col-md-4">
                 <select name="departamento" class="form-select">
                     <option value="">Todos los departamentos</option>
-                    {% for depto in departamentos %}
-                    <option value="{{ depto }}" {% if departamento == depto %}selected{% endif %}>
-                        {{ depto }}
+                    {% for valor, texto in departamentos %}
+                    <option value="{{ valor }}" {% if departamento == valor %}selected{% endif %}>
+                        {{ texto }}
                     </option>
                     {% endfor %}
                 </select>
@@ -59,7 +59,7 @@
                 {% for empleado in empleados %}
                 <tr>
                     <td>{{ empleado.nombre }} {{ empleado.apellido }}</td>
-                    <td>{{ empleado.departamento }}</td>
+                    <td>{{ empleado.get_departamento_display }}</td>
                     <td class="text-center">
                         {% if empleado.tiene_computadora %}
                             <i class="bi bi-check-circle-fill text-success fs-5"></i>
@@ -92,7 +92,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="8" class="text-center text-muted py-3">No hay empleados registrados</td>
+                    <td colspan="6" class="text-center text-muted py-3">No hay empleados registrados</td>
                 </tr>
                 {% endfor %}
             </tbody>
