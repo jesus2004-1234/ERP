@@ -12,9 +12,9 @@ class Documento(models.Model):
         if not self.codigo:
             ultimo_codigo = Documento.objects.filter(modulo=self.modulo, categoria=self.categoria).aggregate(Max('codigo'))['codigo__max']
             if ultimo_codigo:
-                next_codigo = str(int(ultimo_codigo.split('-')[-1]) + 1)
+                next_codigo = (int(ultimo_codigo.split('-')[-1]) + 1)
             else:
-                next_codigo = '1'
+                next_codigo = 1
             self.codigo = f"{self.categoria}-{self.modulo}-{next_codigo:03d}"
         super().save(*args, **kwargs)
     class Modulo(models.TextChoices):
