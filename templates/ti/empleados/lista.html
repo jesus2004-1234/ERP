@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'ti/base.html' %}
 
 {% block title %}Empleados - ERP INNOVACION Y TECNOLOGIA{% endblock %}
 {% block menu_empleados %}active{% endblock %}
@@ -7,7 +7,7 @@
 {% block content %}
 
 <div class="d-flex justify-content-end mb-3">
-    <a href="/empleados/crear/" class="btn btn-primary">
+    <a href="{% url 'empleado_crear'%}" class="btn btn-primary">
         <i class="bi bi-plus-circle"></i> Nuevo empleado
     </a>
 </div>
@@ -82,10 +82,10 @@
                         {% endif %}
                     </td>
                     <td>
-                        <a href="/empleados/{{ empleado.pk }}/editar/" class="btn btn-sm btn-warning">
+                        <a href="{% url 'empleado_editar' empleado.pk %}" class="btn btn-sm btn-warning">
                             <i class="bi bi-pencil"></i>
                         </a>
-                        <a href="/empleados/{{ empleado.pk }}/eliminar/" class="btn btn-sm btn-danger">
+                        <a href="{% url 'empleado_eliminar' empleado.pk %}" class="btn btn-sm btn-danger">
                             <i class="bi bi-trash"></i>
                         </a>
                     </td>

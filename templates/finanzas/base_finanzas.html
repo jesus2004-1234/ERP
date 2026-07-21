@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}ERP - INNOVACION Y TECNOLOGIA{% endblock %}</title>
+    <title>{% block title %}Finanzas - ERP{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <style>
@@ -30,7 +30,12 @@
             padding: 20px;
             font-size: 1.2rem;
             font-weight: bold;
-            border-bottom: 1px solid #3d5166    ;
+            border-bottom: 1px solid #3d5166;
+        }
+        #sidebar .sidebar-volver {
+            border-top: 1px solid #3d5166;
+            margin-top: 10px;
+            padding-top: 10px;
         }
         #content {
             margin-left: 250px;
@@ -52,39 +57,28 @@
     </style>
 </head>
 <body>
-
-<!-- Menú lateral -->
 <div id="sidebar">
     <div class="sidebar-title">
-        <i class="bi bi-pc-display"></i> ERP - INNOVACION Y TECNOLOGÍA
+        <i class="bi bi-cash-coin"></i> ERP - FINANZAS
     </div>
-    <a href="/dashboard/" class="{% block menu_dashboard %}{% endblock %}">
-        <i class="bi bi-speedometer2"></i> Dashboard
+
+    <a href="/finanzas/expedientes/" class="{% block menu_expedientes %}{% endblock %}">
+        <i class="bi bi-briefcase"></i> Expedientes
     </a>
-    <a href="/control_documental/documentos/cit/" class="{% block menu_documentos %}{% endblock %}">
-        <i class="bi bi-folder2-open"></i> Control Documental
+    <a href="/finanzas/cuentas-por-pagar/" class="{% block menu_cxp %}{% endblock %}">
+        <i class="bi bi-arrow-up-circle"></i> Cuentas por Pagar
     </a>
-    <a href="/empleados/" class="{% block menu_empleados %}{% endblock %}">
-        <i class="bi bi-people"></i> Empleados
+    <a href="/finanzas/cuentas-por-cobrar/" class="{% block menu_cxc %}{% endblock %}">
+        <i class="bi bi-arrow-down-circle"></i> Cuentas por Cobrar
     </a>
-    <a href="/equipos/" class="{% block menu_equipos %}{% endblock %}">
-        <i class="bi bi-laptop"></i> Equipos
+    <a href="/finanzas/presupuesto/" class="{% block menu_presupuesto %}{% endblock %}">
+        <i class="bi bi-graph-up"></i> Presupuesto Anual
     </a>
-    <a href="/asignaciones/" class="{% block menu_asignaciones %}{% endblock %}">
-        <i class="bi bi-arrow-left-right"></i> Asignaciones
+    <a href="/finanzas/programa-pagos/" class="{% block menu_programa_pagos %}{% endblock %}">
+        <i class="bi bi-calendar-check"></i> Programa de Pagos
     </a>
-    <a href="/mantenimientos/" class="{% block menu_mantenimientos %}{% endblock %}">
-        <i class="bi bi-tools"></i> Mantenimientos
-    </a>
-    <a href="/correos/" class="{% block menu_correos %}{% endblock %}">
-        <i class="bi bi-envelope"></i> Correos y lineas telefónicas
-    </a>
-    <a href="/consumibles/" class="{% block menu_consumibles %}{% endblock %}">
-        <i class="bi bi-box-seam"></i> Consumibles
-    </a>
-    <a href="/tickets/" class="{% block menu_tickets %}{% endblock %}">
-        <i class="bi bi-ticket"></i> Tickets
-        
+    <a href="/finanzas/bancos/" class="{% block menu_bancos %}{% endblock %}">
+        <i class="bi bi-bank"></i> Bancos y Conciliaciones
     </a>
 </div>
 

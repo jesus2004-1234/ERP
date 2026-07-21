@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'ti/base.html' %}
 
 {% block title %}Equipos - ERP INNOVACION Y TECNOLOGIA{% endblock %}
 {% block menu_equipos %}active{% endblock %}
@@ -7,7 +7,7 @@
 {% block content %}
 
 <div class="d-flex justify-content-end mb-3">
-    <a href="/equipos/crear/" class="btn btn-primary">
+    <a href="{% url 'equipo_crear'%}" class="btn btn-primary">
         <i class="bi bi-plus-circle"></i> Nuevo equipo
     </a>
 </div>
@@ -23,12 +23,12 @@
             <div class="col-md-3">
                 <select name="tipo" class="form-select">
                     <option value="">Todos los tipos</option>
-                    <option value=" Computadora" {% if tipo_actual == ' Computadora' %}selected{% endif %}>Computadora</option>
-                    <option value=" Impresora" {% if tipo_actual == ' Impresora' %}selected{% endif %}>Impresora</option>
-                    <option value=" Proyector" {% if tipo_actual == ' Proyector' %}selected{% endif %}>Proyector</option>
-                    <option value=" Teléfono" {% if tipo_actual == ' Teléfono' %}selected{% endif %}>Teléfono</option>
-                    <option value=" Teclado" {% if tipo_actual == ' Teclado' %}selected{% endif %}>Teclado</option>
-                    <option value=" Mouse" {% if tipo_actual == ' Mouse' %}selected{% endif %}>Mouse</option>
+                    <option value="Computadora" {% if tipo_actual == 'Computadora' %}selected{% endif %}>Computadora</option>
+                    <option value="Impresora" {% if tipo_actual == 'Impresora' %}selected{% endif %}>Impresora</option>
+                    <option value="Proyector" {% if tipo_actual == 'Proyector' %}selected{% endif %}>Proyector</option>
+                    <option value="Teléfono" {% if tipo_actual == 'Teléfono' %}selected{% endif %}>Teléfono</option>
+                    <option value="Teclado" {% if tipo_actual == 'Teclado' %}selected{% endif %}>Teclado</option>
+                    <option value="Mouse" {% if tipo_actual == 'Mouse' %}selected{% endif %}>Mouse</option>
                 </select>
             </div>
             <div class="col-md-2">
@@ -44,7 +44,7 @@
                 <button type="submit" class="btn btn-primary w-100">
                     <i class="bi bi-search"></i> Buscar
                 </button>
-                <a href="/equipos/" class="btn btn-secondary">
+                <a href="/ti/equipos/" class="btn btn-secondary">
                     <i class="bi bi-x"></i>
                 </a>
             </div>
@@ -81,10 +81,10 @@
                         {% endif %}
                     </td>
                     <td>
-                        <a href="/equipos/{{ equipo.pk }}/editar/" class="btn btn-sm btn-warning">
+                        <a href="{% url 'equipo_editar' equipo.pk %}" class="btn btn-sm btn-warning">
                             <i class="bi bi-pencil"></i>
                         </a>
-                        <a href="/equipos/{{ equipo.pk }}/eliminar/" class="btn btn-sm btn-danger">
+                        <a href="{% url 'equipo_eliminar' equipo.pk %}" class="btn btn-sm btn-danger">
                             <i class="bi bi-trash"></i>
                         </a>
                     </td>

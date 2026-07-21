@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'ti/base.html' %}
 
 {% block title %}Asignaciones - ERP INNOVACION Y TECNOLOGIA{% endblock %}
 {% block menu_asignaciones %}active{% endblock %}
@@ -7,7 +7,7 @@
 {% block content %}
 
 <div class="d-flex justify-content-end mb-3">
-    <a href="/asignaciones/crear/" class="btn btn-primary">
+    <a href="{% url 'asignacion_crear'%}" class="btn btn-primary">
         <i class="bi bi-plus-circle"></i> Nueva asignación
     </a>
 </div>
@@ -69,10 +69,10 @@
                         {% endif %}
                     </td>
                     <td>
-                        <a href="/asignaciones/{{ asignacion.pk }}/editar/" class="btn btn-sm btn-warning">
+                        <a href="{% url 'asignacion_editar' asignacion.pk %}}/editar/" class="btn btn-sm btn-warning">
                             <i class="bi bi-pencil"></i>
                         </a>
-                        <a href="/asignaciones/{{ asignacion.pk }}/eliminar/" class="btn btn-sm btn-danger">
+                        <a href="{% url 'asignacion_eliminar' asignacion.pk %}" class="btn btn-sm btn-danger">
                             <i class="bi bi-trash"></i>
                         </a>
                     </td>

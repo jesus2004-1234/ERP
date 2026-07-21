@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iniciar sesión - ERP TI</title>
+    <title>Iniciar sesión - ERP DOSA</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <style>
@@ -25,19 +25,32 @@
             text-align: center;
             border-radius: 10px 10px 0 0;
         }
+        .login-header small {
+            display: block;
+            opacity: 0.85;
+            margin-top: 4px;
+        }
     </style>
 </head>
 <body>
 
 <div class="login-card">
     <div class="login-header">
-        <i class="bi bi-pc-display fs-1"></i>
-        <h4 class="mt-2 mb-0">Departamento de Innovacion y Tecnologia</h4>
+        <i class="bi bi-buildings fs-1"></i>
+        <h4 class="mt-2 mb-0">ERP Corporativo DOSA</h4>
+        <small>Iniciar sesion</small>
     </div>
     <div class="card" style="border-radius: 0 0 10px 10px;">
         <div class="card-body p-4">
             <form method="post">
                 {% csrf_token %}
+
+                <!-- Sin esto, después de iniciar sesión SIEMPRE se redirige al
+                     default (LOGIN_REDIRECT_URL) en vez de a la página que la
+                     persona intentaba ver antes de que le pidieran login
+                     (ej. /finanzas/expedientes/, /empleados/, etc.) -->
+                <input type="hidden" name="next" value="{{ next }}">
+
                 <div class="mb-3">
                     <label class="form-label">Usuario</label>
                     <div class="input-group">

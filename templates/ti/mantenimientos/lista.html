@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'ti/base.html' %}
 
 {% block title %}Mantenimientos - ERP INNOVACION Y TECNOLOGIA{% endblock %}
 {% block menu_mantenimientos %}active{% endblock %}
@@ -7,7 +7,7 @@
 {% block content %}
 
 <div class="d-flex justify-content-end mb-3">
-    <a href="/mantenimientos/crear/" class="btn btn-primary">
+    <a href="{%url 'mantenimiento_crear'%}" class="btn btn-primary">
         <i class="bi bi-plus-circle"></i> Nuevo mantenimiento
     </a>
 </div>
@@ -75,10 +75,10 @@
                     <td>{{ mantenimiento.proxima_fecha_mantenimiento|date:"d/m/Y"|default:"" }}</td>
                     <td>{{ mantenimiento.realizado_por|default:"Sin responsable asignado" }}</td>
                     <td>
-                        <a href="/mantenimientos/{{ mantenimiento.pk }}/editar/" class="btn btn-sm btn-warning">
+                        <a href="{% url 'mantenimiento_editar' mantenimiento.pk %}" class="btn btn-sm btn-warning">
                             <i class="bi bi-pencil"></i>
                         </a>
-                        <a href="/mantenimientos/{{ mantenimiento.pk }}/eliminar/" class="btn btn-sm btn-danger">
+                        <a href="{%url 'mantenimiento_eliminar' mantenimiento.pk %}" class="btn btn-sm btn-danger">
                             <i class="bi bi-trash"></i>
                         </a>
                     </td>

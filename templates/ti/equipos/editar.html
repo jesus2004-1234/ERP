@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'ti/base.html' %}
 
 {% block title %}Editar Equipo - ERP INNOVACION Y TECNOLOGIA{% endblock %}
 {% block menu_equipos %}active{% endblock %}
@@ -52,7 +52,7 @@
                 <button type="submit" class="btn btn-warning">
                     <i class="bi bi-save"></i> Actualizar
                 </button>
-                <a href="/equipos/" class="btn btn-secondary">
+                <a href="{%url 'equipos_lista'%}" class="btn btn-secondary">
                     <i class="bi bi-x-circle"></i> Cancelar
                 </a>
             </div>

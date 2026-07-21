@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'ti/base.html' %}
 
 {% block title %}Editar Mantenimiento - ERP INNOVACION Y TECNOLOGIA{% endblock %}
 {% block menu_mantenimientos %}active{% endblock %}
@@ -58,7 +58,7 @@
                 <button type="submit" class="btn btn-warning">
                     <i class="bi bi-save"></i> Actualizar
                 </button>
-                <a href="/mantenimientos/" class="btn btn-secondary">
+                <a href="{% url 'mantenimientos_lista'%}" class="btn btn-secondary">
                     <i class="bi bi-x-circle"></i> Cancelar
                 </a>
             </div>

@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'ti/base.html' %}
 
 {% block title %}Correos y Líneas - ERP INNOVACION Y TECNOLOGIA{% endblock %}
 {% block menu_correos %}active{% endblock %}
@@ -7,7 +7,7 @@
 {% block content %}
 
 <div class="d-flex justify-content-end mb-3">
-    <a href="/correos/crear/" class="btn btn-primary">
+    <a href="{% url 'correo_crear'%}" class="btn btn-primary">
         <i class="bi bi-plus-circle"></i> Agregar
     </a>
 </div>
@@ -82,10 +82,10 @@
                     </td>
                     <td>{{ correo.observaciones|default:"-" }}</td>
                     <td>
-                        <a href="/correos/{{ correo.pk }}/editar/" class="btn btn-sm btn-warning">
+                        <a href="{% url 'correo_editar' correo.pk %}" class="btn btn-sm btn-warning">
                             <i class="bi bi-pencil"></i>
                         </a>
-                        <a href="/correos/{{ correo.pk }}/eliminar/" class="btn btn-sm btn-danger">
+                        <a href="{% url 'correo_eliminar' correo.pk %}" class="btn btn-sm btn-danger">
                             <i class="bi bi-trash"></i>
                         </a>
                     </td>

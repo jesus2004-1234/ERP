@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'ti/base.html' %}
 
 {% block title %}Nuevo Correo / Línea - ERP INNOVACION Y TECNOLOGIA{% endblock %}
 {% block menu_correos %}active{% endblock %}
@@ -48,7 +48,7 @@
                 <button type="submit" class="btn btn-primary">
                     <i class="bi bi-save"></i> Guardar
                 </button>
-                <a href="/correos/" class="btn btn-secondary">
+                <a href="{% url 'correos_lista' %}" class="btn btn-secondary">
                     <i class="bi bi-x-circle"></i> Cancelar
                 </a>
             </div>

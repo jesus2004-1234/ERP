@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'ti/base.html' %}
 
 {% block title %}Consumibles - ERP INNOVACION Y TECNOLOGIA{% endblock %}
 {% block menu_consumibles %}active{% endblock %}
@@ -7,7 +7,7 @@
 {% block content %}
 
 <div class="d-flex justify-content-end mb-3">
-    <a href="/consumibles/crear/" class="btn btn-primary">
+    <a href="{% url 'consumible_crear' %}" class="btn btn-primary">
         <i class="bi bi-plus-circle"></i> Nuevo consumible
     </a>
 </div>
@@ -75,10 +75,10 @@
                         {% endif %}
                     </td>
                     <td>
-                        <a href="/consumibles/{{ consumible.pk }}/editar/" class="btn btn-sm btn-warning">
+                        <a href="{% url 'consumible_editar' consumible.pk %}" class="btn btn-sm btn-warning">
                             <i class="bi bi-pencil"></i>
                         </a>
-                        <a href="/consumibles/{{ consumible.pk }}/eliminar/" class="btn btn-sm btn-danger">
+                        <a href="{% url 'consumible_eliminar' consumible.pk %}" class="btn btn-sm btn-danger">
                             <i class="bi bi-trash"></i>
                         </a>
                     </td>
