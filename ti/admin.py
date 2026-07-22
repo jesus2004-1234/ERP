@@ -4,9 +4,9 @@ from .models import Empleado, Equipo, Asignacion, Mantenimiento, Correos, Consum
 
 @admin.register(Empleado)
 class EmpleadoAdmin(admin.ModelAdmin):
-    list_display  = ('nombre', 'apellido', 'departamento')
+    list_display  = ('nombre', 'apellido','usuario', 'departamento')
     list_filter   = ('departamento',)
-    search_fields = ('nombre', 'apellido')
+    search_fields = ('nombre', 'apellido','usuario__username',)
 
 
 @admin.register(Equipo)

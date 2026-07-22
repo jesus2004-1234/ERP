@@ -1,17 +1,25 @@
 from django.db import models
 from django.utils import timezone
+from django.contrib.auth.models import User
 
 
 class Empleado(models.Model):
 
+    usuario = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="empleado"
+    )
     class Departamento(models.TextChoices):
-        DIRECCION_GENERAL = 'Direccion General', 'Dirección General'
-        GERENCIA_ADMIN_FINANZAS = 'Gerencia de Administracion y Finanzas', 'Gerencia de Administración y Finanzas'
-        CONEXION_COMERCIAL = 'Conexion Comercial', 'Conexión Comercial'
-        PLANEACION_CONTROL_FINANCIERO = 'Planeacion y Control Financiero', 'Planeación y Control Financiero'
-        CAPITAL_HUMANO = 'Capital Humano y Gestion Integral', 'Capital Humano y Gestión Integral'
-        OPERACIONES_SERVICIOS = 'Operaciones y Servicios Generales', 'Operaciones y Servicios Generales'
-        INNOVACION_TECNOLOGIA = 'Innovación y Tecnología', 'Innovación y Tecnología'
+        DGE = 'DGE', 'Dirección General'
+        GAF = 'GAF', 'Gerencia de Administración y Finanzas'
+        CCC = 'CCC', 'Conexión Comercial'
+        CPF = 'CPF', 'Planeación y Control Financiero'
+        CHG = 'CHG', 'Capital Humano y Gestión Integral'
+        GOP = 'GOP', 'Operaciones y Servicios Generales'
+        CIT = 'CIT', 'Innovación y Tecnología'
 
     nombre             = models.CharField(max_length=100)
     apellido           = models.CharField(max_length=100)

@@ -1,13 +1,8 @@
-from django.contrib import admin
 from django.urls import path
-from django.contrib.auth import views as auth_views
-from ti import views
-from django.conf import settings
-from django.conf.urls.static import static
-from django.urls import path, include    
+from . import views 
 
 urlpatterns = [
-    
+    path('', views.dashboard, name='ti_dashboard'),
     path('empleados/', views.empleados_lista, name='empleados_lista'),
     path('empleados/crear/', views.empleado_crear, name='empleado_crear'),
     path('empleados/<int:pk>/editar/', views.empleado_editar, name='empleado_editar'),

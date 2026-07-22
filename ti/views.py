@@ -67,7 +67,7 @@ def dashboard(request):
         'consumibles_labels':      consumibles_labels,
         'consumibles_data':        consumibles_data,
     }
-    return render(request, 'ti/dashboard.html', context)
+    return render(request, 'ti/ti_dashboard.html', context)
 
 
 @never_cache
