@@ -12,90 +12,304 @@
     </a>
 </div>
 
+
 <div class="card mb-3">
+
     <div class="card-body">
+
         <form method="get" class="row g-2">
+
             <div class="col-lg-4">
-                <input type="text" name="q" class="form-control"
-                       placeholder="Buscar por razón social o RFC..."
-                       value="{{ busqueda }}">
+
+                <input 
+                    type="text"
+                    name="q"
+                    class="form-control"
+                    placeholder="Buscar por nombre, razón social o RFC..."
+                    value="{{ busqueda }}">
+
             </div>
+
+
+
             <div class="col-lg-3">
+
                 <select name="tipo" class="form-select">
-                    <option value="">Todos los tipos</option>
+
+                    <option value="">
+                        Todos los tipos
+                    </option>
+
                     {% for valor, texto in tipos %}
-                    <option value="{{ valor }}" {% if tipo_actual == valor %}selected{% endif %}>
+
+                    <option 
+                        value="{{ valor }}"
+                        {% if tipo_actual == valor %}
+                        selected
+                        {% endif %}>
+
                         {{ texto }}
+
                     </option>
+
                     {% endfor %}
+
                 </select>
+
             </div>
+
+
+
             <div class="col-lg-3">
+
                 <select name="estatus" class="form-select">
-                    <option value="">Todos los estatus</option>
-                    {% for valor, texto in estatuses %}
-                    <option value="{{ valor }}" {% if estatus_actual == valor %}selected{% endif %}>
-                        {{ texto }}
+
+                    <option value="">
+                        Todos los estatus
                     </option>
+
+                    {% for valor, texto in estatuses %}
+
+                    <option 
+                        value="{{ valor }}"
+                        {% if estatus_actual == valor %}
+                        selected
+                        {% endif %}>
+
+                        {{ texto }}
+
+                    </option>
+
                     {% endfor %}
+
                 </select>
+
             </div>
+
+
+
             <div class="col-lg-2 d-flex gap-2">
-                <button type="submit" class="btn btn-primary flex-grow-1">
-                    <i class="bi bi-search"></i> Buscar
+
+                <button 
+                    type="submit"
+                    class="btn btn-primary flex-grow-1">
+
+                    <i class="bi bi-search"></i>
+                    Buscar
+
                 </button>
-                <a href="{% url 'expedientes_lista' %}" class="btn btn-secondary" title="Limpiar filtros">
+
+
+                <a 
+                    href="{% url 'expedientes_lista' %}"
+                    class="btn btn-secondary"
+                    title="Limpiar filtros">
+
                     <i class="bi bi-x"></i>
+
                 </a>
+
             </div>
+
+
         </form>
+
     </div>
+
 </div>
 
+
+
+
 <div class="card">
+
     <div class="card-body p-0">
+
+
         <table class="table table-hover mb-0">
+
+
             <thead class="table-dark">
+
                 <tr>
-                    <th>Razón social</th>
-                    <th>RFC</th>
-                    <th class="text-center">Tipo</th>
-                    <th class="text-center">Días crédito</th>
-                    <th class="text-center">Estatus</th>
-                    <th>Acciones</th>
+
+                    <th>
+                        Nombre / Razón social
+                    </th>
+
+                    <th>
+                        RFC
+                    </th>
+
+                    <th class="text-center">
+                        Contribuyente
+                    </th>
+
+                    <th class="text-center">
+                        Tipo
+                    </th>
+
+                    <th class="text-center">
+                        Días crédito
+                    </th>
+
+                    <th class="text-center">
+                        Estatus
+                    </th>
+
+                    <th>
+                        Acciones
+                    </th>
+
                 </tr>
+
             </thead>
+
+
+
             <tbody>
+
+
                 {% for expediente in expedientes %}
+
+
                 <tr>
-                    <td>{{ expediente.razon_social }}</td>
-                    <td>{{ expediente.rfc|default:"—" }}</td>
-                    <td class="text-center">{{ expediente.get_tipo_display }}</td>
-                    <td class="text-center">{{ expediente.dias_credito }}</td>
-                    <td class="text-center">
-                        {% if expediente.estatus == "Activo" %}
-                            <span class="badge bg-success">{{ expediente.get_estatus_display }}</span>
-                        {% else %}
-                            <span class="badge bg-secondary">{{ expediente.get_estatus_display }}</span>
-                        {% endif %}
-                    </td>
+
+
                     <td>
-                        <a href="{% url 'expediente_editar' expediente.pk %}" class="btn btn-sm btn-warning">
-                            <i class="bi bi-pencil"></i>
-                        </a>
-                        <a href="{% url 'expediente_eliminar' expediente.pk %}" class="btn btn-sm btn-danger">
-                            <i class="bi bi-trash"></i>
-                        </a>
+                        {{ expediente.nombre_completo }}
                     </td>
+
+
+
+                    <td>
+                        {{ expediente.rfc|default:"—" }}
+                    </td>
+
+
+
+                    <td class="text-center">
+
+
+                        {% if expediente.tipo_contribuyente == "PF" %}
+
+                            <span class="badge bg-info">
+                                Persona Física
+                            </span>
+
+                        {% else %}
+
+                            <span class="badge bg-primary">
+                                Persona Moral
+                            </span>
+
+                        {% endif %}
+
+
+                    </td>
+
+
+
+                    <td class="text-center">
+
+                        {{ expediente.get_tipo_display }}
+
+                    </td>
+
+
+
+                    <td class="text-center">
+
+                        {{ expediente.dias_credito }}
+
+                    </td>
+
+
+
+                    <td class="text-center">
+
+
+                        {% if expediente.estatus == "Activo" %}
+
+
+                            <span class="badge bg-success">
+                                {{ expediente.get_estatus_display }}
+                            </span>
+
+
+                        {% else %}
+
+
+                            <span class="badge bg-secondary">
+                                {{ expediente.get_estatus_display }}
+                            </span>
+
+
+                        {% endif %}
+
+
+                    </td>
+
+
+
+                    <td>
+
+
+                        <a 
+                            href="{% url 'expediente_editar' expediente.pk %}"
+                            class="btn btn-sm btn-warning">
+
+                            <i class="bi bi-pencil"></i>
+
+                        </a>
+
+
+
+                        <a 
+                            href="{% url 'expediente_eliminar' expediente.pk %}"
+                            class="btn btn-sm btn-danger">
+
+                            <i class="bi bi-trash"></i>
+
+                        </a>
+
+
+                    </td>
+
+
                 </tr>
+
+
+
                 {% empty %}
+
+
                 <tr>
-                    <td colspan="6" class="text-center text-muted py-3">No hay expedientes registrados</td>
+
+                    <td 
+                        colspan="7"
+                        class="text-center text-muted py-3">
+
+                        No hay expedientes registrados
+
+                    </td>
+
                 </tr>
+
+
                 {% endfor %}
+
+
             </tbody>
+
+
         </table>
+
+
     </div>
+
+
 </div>
+
 
 {% endblock %}

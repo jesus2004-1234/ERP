@@ -8,15 +8,21 @@ class Expediente(models.Model):
         PROVEEDOR = 'Proveedor', 'Proveedor'
         AMBOS     = 'Ambos',     'Cliente y Proveedor'
 
+    class TipoContribuyente(models.TextChoices):
+            FISICA = 'PF', 'Persona fisica'
+            MORAL = "PM", 'Persona Moral'
     class Estatus(models.TextChoices):
         ACTIVO   = 'Activo',   'Activo'
         INACTIVO = 'Inactivo', 'Inactivo'
 
     # --- Identificación ---
-    tipo             = models.CharField(max_length=20, choices=Tipo.choices)
-    razon_social     = models.CharField(max_length=200)
+    tipo = models.CharField(max_length=20, choices=Tipo.choices)
+    tipo_contribuyente = models.CharField(max_length=2, choices=TipoContribuyente.choices, default=TipoContribuyente.MORAL)
+    nombres = models.CharField(max_length=100, blank=True)
+    apellido_paterno = models.CharField(max_length=100, blank=True)
+    apellido_materno = models.CharField(max_length=100, blank=True)
+    razon_social     = models.CharField(max_length=200, blank=True)
     nombre_comercial = models.CharField(max_length=200, blank=True)
-
     # RFC opcional: en Cuentas por Cobrar el Excel no captura RFC del cliente,
     # solo en Cuentas por Pagar (proveedores). null=True (no solo blank=True)
     # es necesario para que dos expedientes sin RFC no choquen contra el
@@ -41,10 +47,16 @@ class Expediente(models.Model):
     fecha_alta    = models.DateField(auto_now_add=True)
     observaciones = models.TextField(blank=True)
 
+    def nombre_completo(self):
+        if self.tipo_contribuyente == self.TipoContribuyente.FISICA:
+            return f"{self.nombres} {self.apellido_paterno} {self.apellido_materno}"
+        return self.razon_social
+
+
     class Meta:
         verbose_name = "Expediente"
         verbose_name_plural = "Expedientes"
-        ordering = ['razon_social']
+        ordering = ['tipo_contribuyente', 'razon_social', 'nombres']
 
     def __str__(self):
         return f"{self.razon_social} ({self.get_tipo_display()})"
@@ -72,3 +84,4 @@ class ExpedienteDocumento(models.Model):
 
     def __str__(self):
         return f"{self.get_categoria_display()} - {self.expediente.razon_social}"
+    

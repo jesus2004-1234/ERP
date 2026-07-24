@@ -5,14 +5,15 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 from django.db import models
 from .models import Expediente, ExpedienteDocumento
+from .validators import validar_rfc
 
 
 @never_cache
 @login_required
 def expedientes_lista(request):
     busqueda = request.GET.get('q', '')
-    tipo     = request.GET.get('tipo', '')
-    estatus  = request.GET.get('estatus', '')
+    tipo = request.GET.get('tipo', '')
+    estatus = request.GET.get('estatus', '')
 
     expedientes = Expediente.objects.all()
 
@@ -22,76 +23,205 @@ def expedientes_lista(request):
             models.Q(nombre_comercial__icontains=busqueda) |
             models.Q(rfc__icontains=busqueda)
         )
+
     if tipo:
         expedientes = expedientes.filter(tipo=tipo)
+
     if estatus:
         expedientes = expedientes.filter(estatus=estatus)
 
     return render(request, 'finanzas/expedientes/lista.html', {
-        'expedientes':    expedientes,
-        'busqueda':       busqueda,
-        'tipo_actual':    tipo,
+        'expedientes': expedientes,
+        'busqueda': busqueda,
+        'tipo_actual': tipo,
         'estatus_actual': estatus,
-        'tipos':          Expediente.Tipo.choices,
-        'estatuses':      Expediente.Estatus.choices,
+        'tipos': Expediente.Tipo.choices,
+        'estatuses': Expediente.Estatus.choices,
     })
-
-
 @never_cache
 @login_required
 def expediente_crear(request):
     if request.method == 'POST':
-        Expediente.objects.create(
-            tipo             = request.POST['tipo'],
-            razon_social     = request.POST['razon_social'],
-            nombre_comercial = request.POST.get('nombre_comercial', ''),
-            rfc              = request.POST.get('rfc') or None,
-            contacto_nombre  = request.POST.get('contacto_nombre', ''),
-            contacto_telefono= request.POST.get('contacto_telefono', ''),
-            contacto_email   = request.POST.get('contacto_email', ''),
-            direccion        = request.POST.get('direccion', ''),
-            dias_credito     = request.POST.get('dias_credito') or 0,
-            limite_credito   = request.POST.get('limite_credito') or None,
-            estatus          = request.POST.get('estatus', Expediente.Estatus.ACTIVO),
-            observaciones    = request.POST.get('observaciones', ''),
+
+        tipo_contribuyente = request.POST['tipo_contribuyente']
+        rfc = (request.POST.get('rfc') or "").strip().upper()
+
+        valido, mensaje = validar_rfc(tipo_contribuyente, rfc)
+
+        if not valido:
+            messages.error(request, mensaje)
+            return render('finanzas/expedientes/crear.html',{'tipos': Expediente.Tipo.choices, 'estatuses': Expediente.Estatus.choices, 'tipos_contribuyente': Expediente.TipoContribuyente.choices,})
+
+        expediente = Expediente.objects.create(
+            tipo=request.POST['tipo'],
+            tipo_contribuyente=tipo_contribuyente,
+            razon_social=request.POST.get('razon_social',''),
+            nombres=request.POST.get('nombres',''),
+            apellido_paterno=request.POST.get('apellido_paterno',''),
+            apellido_materno=request.POST.get('apellido_materno',''),
+            nombre_comercial=request.POST.get('nombre_comercial', ''),
+            rfc=rfc or None,
+            contacto_nombre=request.POST.get('contacto_nombre', ''),
+            contacto_telefono=request.POST.get('contacto_telefono', ''),
+            contacto_email=request.POST.get('contacto_email', ''),
+            direccion=request.POST.get('direccion', ''),
+            dias_credito=request.POST.get('dias_credito') or 0,
+            limite_credito=request.POST.get('limite_credito') or None,
+            estatus=request.POST.get('estatus', Expediente.Estatus.ACTIVO),
+            observaciones=request.POST.get('observaciones', ''),
         )
+
         messages.success(request, 'Expediente creado correctamente.')
         return redirect('expedientes_lista')
 
     return render(request, 'finanzas/expedientes/crear.html', {
-        'tipos':     Expediente.Tipo.choices,
+        'tipos': Expediente.Tipo.choices,
         'estatuses': Expediente.Estatus.choices,
+        'tipos_contribuyente': Expediente.TipoContribuyente.choices,
     })
-
 
 @never_cache
 @login_required
 def expediente_editar(request, pk):
+
     expediente = get_object_or_404(Expediente, pk=pk)
 
     if request.method == 'POST':
-        expediente.tipo              = request.POST['tipo']
-        expediente.razon_social      = request.POST['razon_social']
-        expediente.nombre_comercial  = request.POST.get('nombre_comercial', '')
-        expediente.rfc               = request.POST.get('rfc') or None
-        expediente.contacto_nombre   = request.POST.get('contacto_nombre', '')
-        expediente.contacto_telefono = request.POST.get('contacto_telefono', '')
-        expediente.contacto_email    = request.POST.get('contacto_email', '')
-        expediente.direccion         = request.POST.get('direccion', '')
-        expediente.dias_credito      = request.POST.get('dias_credito') or 0
-        expediente.limite_credito    = request.POST.get('limite_credito') or None
-        expediente.estatus           = request.POST.get('estatus', Expediente.Estatus.ACTIVO)
-        expediente.observaciones     = request.POST.get('observaciones', '')
+
+        tipo_contribuyente = request.POST.get('tipo_contribuyente')
+        rfc = (request.POST.get('rfc') or "").strip().upper()
+
+
+        valido, mensaje = validar_rfc(
+            tipo_contribuyente,
+            rfc
+        )
+
+
+        if not valido:
+
+            messages.error(request, mensaje)
+
+            return render(request,
+                'finanzas/expedientes/editar.html',
+                {
+                    'expediente': expediente,
+                    'tipos': Expediente.Tipo.choices,
+                    'estatuses': Expediente.Estatus.choices,
+                    'tipos_contribuyente': Expediente.TipoContribuyente.choices,
+                }
+            )
+
+
+        expediente.tipo = request.POST.get('tipo')
+
+        expediente.tipo_contribuyente = tipo_contribuyente
+
+
+        # Persona Física
+        if tipo_contribuyente == Expediente.TipoContribuyente.FISICA:
+
+            expediente.nombres = request.POST.get('nombres','')
+            expediente.apellido_paterno = request.POST.get('apellido_paterno','')
+            expediente.apellido_materno = request.POST.get('apellido_materno','')
+
+
+            expediente.razon_social = (
+                expediente.nombres +
+                " " +
+                expediente.apellido_paterno +
+                " " +
+                expediente.apellido_materno
+            )
+
+
+        # Persona Moral
+        else:
+
+            expediente.razon_social = request.POST.get(
+                'razon_social',
+                ''
+            )
+
+            expediente.nombres = ''
+            expediente.apellido_paterno = ''
+            expediente.apellido_materno = ''
+
+
+
+        expediente.nombre_comercial = request.POST.get(
+            'nombre_comercial',
+            ''
+        )
+
+        expediente.rfc = rfc or None
+
+        expediente.contacto_nombre = request.POST.get(
+            'contacto_nombre',
+            ''
+        )
+
+        expediente.contacto_telefono = request.POST.get(
+            'contacto_telefono',
+            ''
+        )
+
+        expediente.contacto_email = request.POST.get(
+            'contacto_email',
+            ''
+        )
+
+        expediente.direccion = request.POST.get(
+            'direccion',
+            ''
+        )
+
+        expediente.dias_credito = request.POST.get(
+            'dias_credito'
+        ) or 0
+
+
+        expediente.limite_credito = request.POST.get(
+            'limite_credito'
+        ) or None
+
+
+        expediente.estatus = request.POST.get(
+            'estatus',
+            Expediente.Estatus.ACTIVO
+        )
+
+
+        expediente.observaciones = request.POST.get(
+            'observaciones',
+            ''
+        )
+
+
         expediente.save()
-        messages.success(request, 'Expediente actualizado correctamente.')
-        return redirect('expedientes_lista')
 
-    return render(request, 'finanzas/expedientes/editar.html', {
-        'expediente': expediente,
-        'tipos':      Expediente.Tipo.choices,
-        'estatuses':  Expediente.Estatus.choices,
-    })
 
+        messages.success(
+            request,
+            'Expediente actualizado correctamente.'
+        )
+
+
+        return redirect(
+            'expedientes_lista'
+        )
+
+
+
+    return render(request,
+        'finanzas/expedientes/editar.html',
+        {
+            'expediente': expediente,
+            'tipos': Expediente.Tipo.choices,
+            'estatuses': Expediente.Estatus.choices,
+            'tipos_contribuyente': Expediente.TipoContribuyente.choices,
+        }
+    )
 
 @never_cache
 @login_required
