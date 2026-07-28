@@ -14,26 +14,21 @@
 
 
 <div class="card mb-3">
-
     <div class="card-body">
 
         <form method="get" class="row g-2">
 
             <div class="col-lg-4">
-
                 <input 
                     type="text"
                     name="q"
                     class="form-control"
                     placeholder="Buscar por nombre, razón social o RFC..."
                     value="{{ busqueda }}">
-
             </div>
 
 
-
             <div class="col-lg-3">
-
                 <select name="tipo" class="form-select">
 
                     <option value="">
@@ -44,9 +39,7 @@
 
                     <option 
                         value="{{ valor }}"
-                        {% if tipo_actual == valor %}
-                        selected
-                        {% endif %}>
+                        {% if tipo_actual == valor %}selected{% endif %}>
 
                         {{ texto }}
 
@@ -55,9 +48,7 @@
                     {% endfor %}
 
                 </select>
-
             </div>
-
 
 
             <div class="col-lg-3">
@@ -72,9 +63,7 @@
 
                     <option 
                         value="{{ valor }}"
-                        {% if estatus_actual == valor %}
-                        selected
-                        {% endif %}>
+                        {% if estatus_actual == valor %}selected{% endif %}>
 
                         {{ texto }}
 
@@ -85,7 +74,6 @@
                 </select>
 
             </div>
-
 
 
             <div class="col-lg-2 d-flex gap-2">
@@ -111,13 +99,10 @@
 
             </div>
 
-
         </form>
 
     </div>
-
 </div>
-
 
 
 
@@ -125,189 +110,174 @@
 
     <div class="card-body p-0">
 
+        <div class="table-responsive">
 
-        <table class="table table-hover mb-0">
+            <table class="table table-hover mb-0">
 
+                <thead class="table-dark">
 
-            <thead class="table-dark">
+                    <tr>
 
-                <tr>
+                        <th>
+                            Nombre / Razón social
+                        </th>
 
-                    <th>
-                        Nombre / Razón social
-                    </th>
+                        <th>
+                            RFC
+                        </th>
 
-                    <th>
-                        RFC
-                    </th>
+                        <th class="text-center">
+                            Contribuyente
+                        </th>
 
-                    <th class="text-center">
-                        Contribuyente
-                    </th>
+                        <th class="text-center">
+                            Tipo
+                        </th>
 
-                    <th class="text-center">
-                        Tipo
-                    </th>
+                        <th class="text-center">
+                            Días crédito
+                        </th>
 
-                    <th class="text-center">
-                        Días crédito
-                    </th>
+                        <th class="text-center">
+                            Estatus
+                        </th>
 
-                    <th class="text-center">
-                        Estatus
-                    </th>
+                        <th class="text-center">
+                            Acciones
+                        </th>
 
-                    <th>
-                        Acciones
-                    </th>
+                    </tr>
 
-                </tr>
+                </thead>
 
-            </thead>
 
+                <tbody>
 
+                    {% for expediente in expedientes %}
 
-            <tbody>
+                    <tr>
 
+                        <td>
+                            {{ expediente.nombre_completo }}
+                        </td>
 
-                {% for expediente in expedientes %}
 
+                        <td>
+                            {{ expediente.rfc|default:"—" }}
+                        </td>
 
-                <tr>
 
+                        <td class="text-center">
 
-                    <td>
-                        {{ expediente.nombre_completo }}
-                    </td>
+                            {% if expediente.tipo_contribuyente == "PF" %}
 
+                                <span class="badge bg-info">
+                                    Persona Física
+                                </span>
 
+                            {% else %}
 
-                    <td>
-                        {{ expediente.rfc|default:"—" }}
-                    </td>
+                                <span class="badge bg-primary">
+                                    Persona Moral
+                                </span>
 
+                            {% endif %}
 
+                        </td>
 
-                    <td class="text-center">
 
+                        <td class="text-center">
+                            {{ expediente.get_tipo_display }}
+                        </td>
 
-                        {% if expediente.tipo_contribuyente == "PF" %}
 
-                            <span class="badge bg-info">
-                                Persona Física
-                            </span>
+                        <td class="text-center">
+                            {{ expediente.dias_credito }}
+                        </td>
 
-                        {% else %}
 
-                            <span class="badge bg-primary">
-                                Persona Moral
-                            </span>
+                        <td class="text-center">
 
-                        {% endif %}
+                            {% if expediente.estatus == "Activo" %}
 
+                                <span class="badge bg-success">
+                                    {{ expediente.get_estatus_display }}
+                                </span>
 
-                    </td>
+                            {% else %}
 
+                                <span class="badge bg-secondary">
+                                    {{ expediente.get_estatus_display }}
+                                </span>
 
+                            {% endif %}
 
-                    <td class="text-center">
+                        </td>
 
-                        {{ expediente.get_tipo_display }}
 
-                    </td>
+                        <td class="text-center">
 
+                            <div class="btn-group" role="group">
 
+                                <a 
+                                    href="{% url 'expediente_editar' expediente.pk %}"
+                                    class="btn btn-sm btn-warning"
+                                    title="Editar">
 
-                    <td class="text-center">
+                                    <i class="bi bi-pencil"></i>
 
-                        {{ expediente.dias_credito }}
+                                </a>
 
-                    </td>
 
+                                <a
+                                    href="{% url 'expediente_detalle' expediente.pk %}"
+                                    class="btn btn-sm btn-info"
+                                    title="Ver detalle">
 
+                                    <i class="bi bi-eye"></i>
 
-                    <td class="text-center">
+                                </a>
 
 
-                        {% if expediente.estatus == "Activo" %}
+                                <a 
+                                    href="{% url 'expediente_eliminar' expediente.pk %}"
+                                    class="btn btn-sm btn-danger"
+                                    title="Eliminar">
 
+                                    <i class="bi bi-trash"></i>
 
-                            <span class="badge bg-success">
-                                {{ expediente.get_estatus_display }}
-                            </span>
+                                </a>
 
+                            </div>
 
-                        {% else %}
+                        </td>
 
+                    </tr>
 
-                            <span class="badge bg-secondary">
-                                {{ expediente.get_estatus_display }}
-                            </span>
 
+                    {% empty %}
 
-                        {% endif %}
+                    <tr>
 
+                        <td 
+                            colspan="7"
+                            class="text-center text-muted py-3">
 
-                    </td>
+                            No hay expedientes registrados
 
+                        </td>
 
+                    </tr>
 
-                    <td>
+                    {% endfor %}
 
+                </tbody>
 
-                        <a 
-                            href="{% url 'expediente_editar' expediente.pk %}"
-                            class="btn btn-sm btn-warning">
+            </table>
 
-                            <i class="bi bi-pencil"></i>
-
-                        </a>
-
-
-
-                        <a 
-                            href="{% url 'expediente_eliminar' expediente.pk %}"
-                            class="btn btn-sm btn-danger">
-
-                            <i class="bi bi-trash"></i>
-
-                        </a>
-
-
-                    </td>
-
-
-                </tr>
-
-
-
-                {% empty %}
-
-
-                <tr>
-
-                    <td 
-                        colspan="7"
-                        class="text-center text-muted py-3">
-
-                        No hay expedientes registrados
-
-                    </td>
-
-                </tr>
-
-
-                {% endfor %}
-
-
-            </tbody>
-
-
-        </table>
-
+        </div>
 
     </div>
-
 
 </div>
 

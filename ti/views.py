@@ -6,14 +6,13 @@ from django.db import models
 from django.utils import timezone
 from .models import Empleado, Equipo, Consumible, Mantenimiento, Asignacion, Correos
 import requests
+import json
+from django.db.models import Count
 
 
 @never_cache
 @login_required
 def dashboard(request):
-    import json
-    from django.db.models import Count
-
     total_empleados   = Empleado.objects.count()
     total_equipos     = Equipo.objects.count()
     tickets_abiertos  = 0
@@ -21,13 +20,13 @@ def dashboard(request):
 
     tickets_recientes = []
     try:
-        import requests as req
-        response = req.get('https://jesusaav4.pythonanywhere.com/api/tickets', timeout=5)
+        response = requests.get('https://jesusaav4.pythonanywhere.com/api/tickets', timeout=5)
         data = response.json()
         todos_tickets     = data.get('tickets', [])
         tickets_abiertos  = sum(1 for t in todos_tickets if t['estado'] == 'Abierto')
         tickets_recientes = todos_tickets[:5]
-    except Exception:
+    except Exception as e:
+        print(e)
         todos_tickets = []
 
     equipos_por_tipo = list(
@@ -50,8 +49,10 @@ def dashboard(request):
     consumibles_data   = json.dumps([c['total'] for c in consumibles_por_cat])
 
     proximos_mantenimientos = Mantenimiento.objects.filter(
+        proxima_fecha_mantenimiento__isnull=False,
         proxima_fecha_mantenimiento__gte=timezone.now().date()
-    ).order_by('proxima_fecha_mantenimiento')[:5]
+    ).order_by('proxima_fecha_mantenimiento')[:3]
+
 
     context = {
         'total_empleados':         total_empleados,
@@ -263,6 +264,7 @@ def asignacion_editar(request, pk):
     if request.method == 'POST':
         asignacion.equipo_id        = request.POST['equipo']
         asignacion.empleado_id      = request.POST['empleado']
+        asignacion.fecha_asignacion = request.POST['fecha_asignacion']
         asignacion.fecha_devolucion = request.POST.get('fecha_devolucion') or None
         asignacion.entregado_por    = request.POST.get('entregado_por', '')
         asignacion.save()
@@ -439,6 +441,7 @@ def correo_eliminar(request, pk):
 def consumibles_lista(request):
     busqueda   = request.GET.get('q', '')
     categoria  = request.GET.get('categoria', '')
+    stock_bajo = request.GET.get('stock_bajo','')
    
 
     consumibles = Consumible.objects.all()
@@ -450,12 +453,15 @@ def consumibles_lista(request):
         )
     if categoria:
         consumibles = consumibles.filter(categoria=categoria)
-        consumibles = [c for c in consumibles if c.stock_bajo]
+
+    if stock_bajo:
+        consumibles = consumibles.filter(stock_actual__lte=5)
 
     return render(request, 'ti/consumibles/lista.html', {
         'consumibles':      consumibles,
         'busqueda':         busqueda,
         'categoria_actual': categoria,
+        'stock_actual': stock_bajo,
     })
 
 

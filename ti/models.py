@@ -140,7 +140,7 @@ class Mantenimiento(models.Model):
             return 'Vencido'
         elif dias_restantes <= 30:
             return 'Pendiente'
-        return 'Al día'
+        return 'Al dia'
 
     @property
     def color_estatus(self):
@@ -163,7 +163,7 @@ class Correos(models.Model):
 
     tipo             = models.CharField(max_length=20, choices=Tipo.choices, default=Tipo.CORREO)
     empleado         = models.ForeignKey(Empleado, on_delete=models.SET_NULL, null=True, blank=True, related_name='correos')
-    correo_asignado  = models.CharField(max_length=200, unique=True)
+    correo_asignado  = models.CharField(max_length=200)
     fecha_asignacion = models.DateField(auto_now_add=True)
     estatus          = models.CharField(max_length=20, choices=EstatusCorreo.choices, default=EstatusCorreo.DISPONIBLE)
     observaciones    = models.TextField(blank=True, null=True)

@@ -30,7 +30,7 @@
             <div class="col-md-2">
                 <select name="estatus" class="form-select">
                     <option value="">Todos los estatus</option>
-                    <option value="Al dia" {% if estatus_actual == 'Al dia' %}selected{% endif %}>Al día</option>
+                    <option value="Al dia" {% if estatus_actual == 'Al dia' %}selected{% endif %}>Al dia</option>
                     <option value="Pendiente" {% if estatus_actual == 'Pendiente' %}selected{% endif %}>Pendiente</option>
                     <option value="Vencido" {% if estatus_actual == 'Vencido' %}selected{% endif %}>Vencido</option>
                 </select>
@@ -39,7 +39,7 @@
                 <button type="submit" class="btn btn-primary w-100">
                     <i class="bi bi-search"></i> Buscar
                 </button>
-                <a href="/mantenimientos/" class="btn btn-secondary">
+                <a href="{% url 'mantenimientos_lista'%}" class="btn btn-secondary">
                     <i class="bi bi-x"></i>
                 </a>
             </div>

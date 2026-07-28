@@ -1,0 +1,205 @@
+{% extends 'finanzas/base_finanzas.html'%}
+{% block title %}Detalle Expediente - ERP FINANZAS{% endblock %}
+{% block menu_expedientes %}active{% endblock %}
+{% block page_title %}Detalles del Expediente{% endblock %}
+
+{% block content %}
+
+<!-- Cabecera -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+    <div>
+        <h3 class="mb-1">
+            <i class="bi bi-folder2-open"></i>
+            {{ expediente.nombre_completo }}
+        </h3>
+        <small class="text-muted">
+            RFC: {{ expediente.rfc|default:"Sin RFC" }}
+        </small>
+    </div>
+
+    <div class="mt-3 mt-md-0">
+        <a href="{% url 'expediente_editar' expediente.pk %}" class="btn btn-warning">
+            <i class="bi bi-pencil"></i> Editar
+        </a>
+        <a href="{% url 'expedientes_lista' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Regresar
+        </a>
+    </div>
+</div>
+
+<!-- Información General -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-primary text-white">
+        <i class="bi bi-person-vcard"></i> Información General
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-lg-4 col-md-6 mb-3">
+                <strong>Tipo</strong><br>{{ expediente.get_tipo_display }}
+            </div>
+            <div class="col-lg-4 col-md-6 mb-3">
+                <strong>Contribuyente</strong><br>{{ expediente.get_tipo_contribuyente_display }}
+            </div>
+            <div class="col-lg-4 col-md-6 mb-3">
+                <strong>Estatus</strong><br>
+                {% if expediente.estatus == expediente.Estatus.ACTIVO %}
+                    <span class="badge bg-success">{{ expediente.get_estatus_display }}</span>
+                {% else %}
+                    <span class="badge bg-secondary">{{ expediente.get_estatus_display }}</span>
+                {% endif %}
+            </div>
+            <div class="col-lg-6 mb-3">
+                <strong>Razón social / Nombre</strong><br>{{ expediente.nombre_completo }}
+            </div>
+            <div class="col-lg-6 mb-3">
+                <strong>RFC</strong><br>{{ expediente.rfc|default:"No registrado" }}
+            </div>
+            <div class="col-lg-4 mb-3">
+                <strong>Nombre comercial</strong><br>{{ expediente.nombre_comercial|default:"-" }}
+            </div>
+            <div class="col-lg-4 mb-3">
+                <strong>Días de crédito</strong><br>{{ expediente.dias_credito|default:"0" }}
+            </div>
+            <div class="col-lg-4 mb-3">
+                <strong>Límite de crédito</strong><br>${{ expediente.limite_credito|default:"0.00" }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Información de contacto -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-secondary text-white">
+        <i class="bi bi-telephone"></i> Información de contacto
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-lg-4 mb-3">
+                <strong>Contacto</strong><br>{{ expediente.contacto_nombre|default:"-" }}
+            </div>
+            <div class="col-lg-4 mb-3">
+                <strong>Teléfono</strong><br>{{ expediente.contacto_telefono|default:"-" }}
+            </div>
+            <div class="col-lg-4 mb-3">
+                <strong>Correo</strong><br>{{ expediente.contacto_email|default:"-" }}
+            </div>
+            <div class="col-12 text-break">
+                <strong>Dirección</strong><br>{{ expediente.direccion|default:"-" }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Documentos -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+        <div>
+            <i class="bi bi-folder2-open"></i> Documentos del expediente
+        </div>
+        <button class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#modalDocumento">
+            <i class="bi bi-upload"></i> Subir documento
+        </button>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            {% for documento in documentos %}
+                <div class="col-xl-4 col-lg-6 col-md-6 col-sm-12 mb-4">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body text-center d-flex flex-column">
+                            {% with archivo=documento.archivo.name|default:""|lower %}
+                                {% if ".pdf" in archivo %}
+                                    <i class="bi bi-file-earmark-pdf-fill text-danger display-3"></i>
+                                {% elif ".docx" in archivo or ".doc" in archivo %}
+                                    <i class="bi bi-file-earmark-word-fill text-primary display-3"></i>
+                                {% elif ".xlsx" in archivo or ".xls" in archivo %}
+                                    <i class="bi bi-file-earmark-excel-fill text-success display-3"></i>
+                                {% elif ".jpg" in archivo or ".jpeg" in archivo or ".png" in archivo %}
+                                    <i class="bi bi-file-earmark-image-fill text-warning display-3"></i>
+                                {% else %}
+                                    <i class="bi bi-file-earmark-fill text-secondary display-3"></i>
+                                {% endif %}
+                            {% endwith %}
+
+                            <h6 class="mt-3 mb-2 text-truncate" title="{{ documento.nombre_archivo }}">
+                                {{ documento.nombre_archivo }}
+                            </h6>
+
+                            <div class="mb-3">
+                                <span class="badge bg-info">{{ documento.get_categoria_display }}</span>
+                            </div>
+
+                            <div class="d-grid gap-2 mt-auto">
+                                {% if documento.archivo %}
+                                    <a href="{{ documento.archivo.url }}" target="_blank" class="btn btn-success btn-sm">
+                                        <i class="bi bi-download"></i> Descargar
+                                    </a>
+                                {% else %}
+                                    <button class="btn btn-success btn-sm" disabled>
+                                        <i class="bi bi-download"></i> Sin archivo
+                                    </button>
+                                {% endif %}
+                                <form method="POST" action="{% url 'expediente_documento_eliminar' documento.pk %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-danger w-100"
+                                            onclick="return confirm('¿Eliminar documento?');">
+                                        <i class="bi bi-trash"></i> Eliminar
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% empty %}
+                <div class="col-12">
+                    <div class="alert alert-info text-center">
+                        <i class="bi bi-folder-x display-4"></i>
+                        <h5 class="mt-3">No hay documentos registrados</h5>
+                        <p class="mb-0">Presiona "Subir documento" para agregar archivos.</p>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Subir Documento -->
+<div class="modal fade" id="modalDocumento" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{% url 'expediente_documento_subir' expediente.pk %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-upload"></i> Subir documento
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Categoría</label>
+                        <select name="categoria" class="form-select" required>
+                            <option value="">Seleccione...</option>
+                            {% for valor,texto in categorias %}
+                                <option value="{{ valor }}">{{ texto }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Archivo</label>
+                        <input type="file" name="archivo" class="form-control" required
+                               accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png">
+                        <div class="form-text">Formatos permitidos: PDF, Word, Excel e imágenes.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Guardar documento
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

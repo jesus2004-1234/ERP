@@ -5,6 +5,13 @@ from django.contrib import messages
 
 from .models import Documento
 
+BASE_TEMPLATES = {
+    "CIT": "ti/base.html",
+    "CPF": "finanzas/base_finanzas.html",
+    "CHG": "capital_humano/base_capital_humano.html",
+    "CCC": "conexion_comercial/base_conexion_comercial.html",
+    "GOP": "operaciones/base_operaciones.html",
+}
 
 @login_required
 def documentos(request):
@@ -21,6 +28,11 @@ def documentos(request):
 
     # Obtener departamento del empleado
     departamento = empleado.departamento
+
+    base_template = BASE_TEMPLATES.get(
+        departamento,
+        "base.html"
+    )
 
 
     # -------- SUBIR DOCUMENTO --------
@@ -94,6 +106,7 @@ def documentos(request):
         request,
         "control_documental/lista.html",
         {
+            "base_template": base_template,
             "documentos": documentos,
             "categorias": Documento.Categoria.choices,
             "categoria_actual": categoria,

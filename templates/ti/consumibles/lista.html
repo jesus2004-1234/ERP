@@ -33,14 +33,14 @@
             <div class="col-md-2">
                 <select name="stock_bajo" class="form-select">
                     <option value="">Todos</option>
-                    <option value="1" {% if stock_bajo %}selected{% endif %}>Stock bajo</option>
+                    <option value="1" {% if stock_actual %}selected{% endif %}>Stock bajo</option>
                 </select>
             </div>
             <div class="col-md-3 d-flex gap-2">
                 <button type="submit" class="btn btn-primary w-100">
                     <i class="bi bi-search"></i> Buscar
                 </button>
-                <a href="/consumibles/" class="btn btn-secondary">
+                <a href="{% url 'consumibles_lista' %}" class="btn btn-secondary">
                     <i class="bi bi-x"></i>
                 </a>
             </div>
@@ -68,7 +68,7 @@
                     <td>{{ consumible.stock_actual }}</td>
                     <td>{{ consumible.unidad_medida|default:"-" }}</td>
                     <td>
-                        {% if consumible.stock_Actual == 0 %}
+                        {% if consumible.stock_actual == 0 %}
                             <span class="badge bg-danger">Agotado</span>
                         {% else %}
                             <span class="badge bg-success">Disponible</span>
