@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 
 class Expediente(models.Model):
@@ -227,3 +228,81 @@ class ExpedienteDocumento(models.Model):
     def __str__(self):
 
         return f"{self.get_categoria_display()} - {self.expediente.nombre_completo}"
+
+class FacturaCliente(models.Model):
+
+    class Estatus(models.TextChoices):
+        PENDIENTE = 'Pendiente', 'Pendiente'
+        PARCIAL = 'Parcial', 'Parcial'
+        PAGADA = 'Pagada', 'Pagada'
+        CANCELADA = 'Cancelada', 'Cancelada'
+
+    expediente = models.ForeignKey('Expediente', on_delete=models.PROTECT, related_name='facturas_cliente')
+    fecha_factura = models.DateField()
+    factura = models.CharField(max_length=50, unique=True)
+    orden_compra = models.CharField(max_length=100, blank=True)
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2)
+    iva = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total = models.DecimalField(max_digits=12, decimal_places=2)
+
+    fecha_ingreso_cliente = models.DateField(blank=True, null=True)
+    dias_credito = models.PositiveIntegerField(default=0)
+    fecha_vencimiento = models.DateField()
+    estatus = models.CharField(max_length=20, choices=Estatus.choices, default=Estatus.PENDIENTE)
+    cfdi_complemento_pago = models.BooleanField(default=False)
+    porcentaje_comision = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    procedencia = models.CharField(max_length=150, blank=True)
+    observaciones = models.TextField(blank=True)
+    fecha_registro = models.DateTimeField(auto_now_add=False)
+
+    @property
+    def monto_comision(self):
+        return(self.total * self.porcentaje_comision / Decimal("100"))
+    @property
+    def total_pagado(self):
+        return sum(pago.monto for pago in self.pagos.all())
+    @property
+    def saldo_pendiente(self):
+        return self.total - self.total_pagado
+    @property
+    def dias_vencimiento(self):
+        if self.estatus == self.Estatus.PAGADA:
+            return 0
+        return(timezone.now().date() - self.fecha_vencimiento).days
+
+    def __str__(self):
+        return f"{self.factura} - {self.expediente.nombre_completo}"
+
+    class Meta:
+        ordering = ["-fecha_factura"]
+        verbose_name = "Factura Cliente"
+        verbose_name_plural = "Facturas Clientes"
+
+
+class PagoCliente(models.Model):
+
+    class MetodoPago(models.TextChoices):
+        TRANSFERENCIA = "Transferencia", "Transferencia"
+        DEPOSITO = "Deposito", "Deposito"
+        CHEQUE = "Cheque", "Cheque"
+        EFECTIVO = "Efectivo", "Efectivo"
+        OTRO = "Otro", "Otro"
+
+    factura = models.ForeignKey('FacturaCliente', on_delete=models.CASCADE, related_name='pagos')
+    fecha_pago = models.DateField()
+    fecha_deposito = models.DateField( blank=True, null=True)
+    monto = models.DecimalField(max_digits=12, decimal_places=2)
+    metodo_pago = models.CharField(max_length=20, choices=MetodoPago.choices, default=MetodoPago.TRANSFERENCIA)
+    referencia = models.CharField(max_length=100, blank=True)
+    observaciones = models.TextField(blank=True)
+    fecha_registro = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return(
+            f"{self.factura.factura} - " 
+            f"${self.monto}"
+        )
+    class Meta:
+        ordering = ['fecha_pago']
+        verbose_name = "Pago Cliente"
+        verbose_name_plural = "Pagos "

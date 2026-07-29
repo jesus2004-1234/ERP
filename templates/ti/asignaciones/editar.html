@@ -37,8 +37,8 @@
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Estatus</label>
                         <select name="estatus" class="form-select" required>
-                            <option value="Asignado" {% if asignacion.estatus == 'Asignado' %}selected{% endif %}>Asignado</option>
-                            <option value="Devuelto" {% if asignacion.estatus == 'Devuelto' %}selected{% endif %}>Devuelto</option>
+                            <option value="Asignado" {%if asignacion.estatus == 'Asignado' %}selected{% endif %}>Asignado</option>
+                            <option value="Devuelto" {%if asignacion.estatus == 'Devuelto' %}selected{% endif %}>Devuelto</option>
                         </select>
                     </div>
                 <div class="col-md-6 mb-3">

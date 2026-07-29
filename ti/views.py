@@ -267,6 +267,7 @@ def asignacion_editar(request, pk):
         asignacion.fecha_asignacion = request.POST['fecha_asignacion']
         asignacion.fecha_devolucion = request.POST.get('fecha_devolucion') or None
         asignacion.entregado_por    = request.POST.get('entregado_por', '')
+        asignacion.estatus = request.POST.get('estatus')
         asignacion.save()
         messages.success(request, 'Asignación actualizada correctamente.')
         return redirect('asignaciones_lista')
