@@ -54,6 +54,9 @@
             <div class="col-lg-6 mb-3">
                 <strong>RFC</strong><br>{{ expediente.rfc|default:"No registrado" }}
             </div>
+            <div class="col-lg-6 mb-3">
+                <strong>Régimen Fiscal</strong><br>{{ expediente.get_regimen_fiscal_display|default:"No especificado" }}
+            </div>
             <div class="col-lg-4 mb-3">
                 <strong>Nombre comercial</strong><br>{{ expediente.nombre_comercial|default:"-" }}
             </div>
@@ -101,55 +104,84 @@
         </button>
     </div>
     <div class="card-body">
-        <div class="row">
-            {% for documento in documentos %}
-                <div class="col-xl-4 col-lg-6 col-md-6 col-sm-12 mb-4">
-                    <div class="card h-100 border-0 shadow-sm">
-                        <div class="card-body text-center d-flex flex-column">
-                            {% with archivo=documento.archivo.name|default:""|lower %}
-                                {% if ".pdf" in archivo %}
-                                    <i class="bi bi-file-earmark-pdf-fill text-danger display-3"></i>
-                                {% elif ".docx" in archivo or ".doc" in archivo %}
-                                    <i class="bi bi-file-earmark-word-fill text-primary display-3"></i>
-                                {% elif ".xlsx" in archivo or ".xls" in archivo %}
-                                    <i class="bi bi-file-earmark-excel-fill text-success display-3"></i>
-                                {% elif ".jpg" in archivo or ".jpeg" in archivo or ".png" in archivo %}
-                                    <i class="bi bi-file-earmark-image-fill text-warning display-3"></i>
-                                {% else %}
-                                    <i class="bi bi-file-earmark-fill text-secondary display-3"></i>
-                                {% endif %}
-                            {% endwith %}
+        {% regroup documentos by get_categoria_display as documentos_agrupados %}
 
-                            <h6 class="mt-3 mb-2 text-truncate" title="{{ documento.nombre_archivo }}">
-                                {{ documento.nombre_archivo }}
-                            </h6>
+        {% if documentos_agrupados %}
+            {% for grupo in documentos_agrupados %}
+                <h6 class="text-uppercase text-muted mb-3 {% if not forloop.first %}mt-4{% endif %} border-bottom pb-2">
+                    <i class="bi bi-folder"></i> {{ grupo.grouper }}
+                </h6>
+                <div class="row">
+                    {% for documento in grupo.list %}
+                        <div class="col-xl-4 col-lg-6 col-md-6 col-sm-12 mb-4">
+                            <div class="card h-100 border-0 shadow-sm">
+                                <div class="card-body text-center d-flex flex-column">
+                                    {% with archivo=documento.archivo.name|default:""|lower %}
 
-                            <div class="mb-3">
-                                <span class="badge bg-info">{{ documento.get_categoria_display }}</span>
-                            </div>
+                                        {% if ".jpg" in archivo or ".jpeg" in archivo or ".png" in archivo %}
 
-                            <div class="d-grid gap-2 mt-auto">
-                                {% if documento.archivo %}
-                                    <a href="{{ documento.archivo.url }}" target="_blank" class="btn btn-success btn-sm">
-                                        <i class="bi bi-download"></i> Descargar
-                                    </a>
-                                {% else %}
-                                    <button class="btn btn-success btn-sm" disabled>
-                                        <i class="bi bi-download"></i> Sin archivo
-                                    </button>
-                                {% endif %}
-                                <form method="POST" action="{% url 'expediente_documento_eliminar' documento.pk %}">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-sm btn-danger w-100"
-                                            onclick="return confirm('¿Eliminar documento?');">
-                                        <i class="bi bi-trash"></i> Eliminar
-                                    </button>
-                                </form>
+                                            <img src="{{ documento.archivo.url }}"
+                                                 class="img-fluid rounded shadow-sm mb-3"
+                                                 style="height:220px;width:100%;object-fit:cover;">
+
+                                        {% elif ".pdf" in archivo %}
+
+                                            <iframe
+                                                src="{{ documento.archivo.url }}"
+                                                style="width:100%;height:220px;border:none;"
+                                                class="rounded mb-3">
+                                            </iframe>
+
+                                        {% elif ".docx" in archivo or ".doc" in archivo %}
+
+                                            <i class="bi bi-file-earmark-word-fill text-primary display-1 mb-3"></i>
+
+                                        {% elif ".xlsx" in archivo or ".xls" in archivo %}
+
+                                            <i class="bi bi-file-earmark-excel-fill text-success display-1 mb-3"></i>
+
+                                        {% else %}
+
+                                            <i class="bi bi-file-earmark-fill text-secondary display-1 mb-3"></i>
+
+                                        {% endif %}
+
+                                    {% endwith %}
+
+                                    <h6 class="mt-3 mb-2 text-truncate" title="{{ documento.nombre_archivo }}">
+                                        {{ documento.nombre_archivo }}
+                                    </h6>
+
+                                    <div class="mb-3">
+                                        <span class="badge bg-info">{{ documento.get_categoria_display }}</span>
+                                    </div>
+
+                                    <div class="d-grid gap-2 mt-auto">
+                                        {% if documento.archivo %}
+                                            <a href="{{ documento.archivo.url }}" target="_blank" class="btn btn-success btn-sm">
+                                                <i class="bi bi-download"></i> Descargar
+                                            </a>
+                                        {% else %}
+                                            <button class="btn btn-success btn-sm" disabled>
+                                                <i class="bi bi-download"></i> Sin archivo
+                                            </button>
+                                        {% endif %}
+                                        <form method="POST" action="{% url 'expediente_documento_eliminar' documento.pk %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-danger w-100"
+                                                    onclick="return confirm('¿Eliminar documento?');">
+                                                <i class="bi bi-trash"></i> Eliminar
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    {% endfor %}
                 </div>
-            {% empty %}
+            {% endfor %}
+        {% else %}
+            <div class="row">
                 <div class="col-12">
                     <div class="alert alert-info text-center">
                         <i class="bi bi-folder-x display-4"></i>
@@ -157,8 +189,8 @@
                         <p class="mb-0">Presiona "Subir documento" para agregar archivos.</p>
                     </div>
                 </div>
-            {% endfor %}
-        </div>
+            </div>
+        {% endif %}
     </div>
 </div>
 

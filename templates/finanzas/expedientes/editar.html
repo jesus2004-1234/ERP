@@ -212,8 +212,25 @@ value="{{ expediente.rfc|default:'' }}">
 
 </div>
 
+<!--REGIMEN FISCAL-->
 
+<div class="col-md-4 mb-3">
+    <label class="form-label">
+        Regimen Fiscal
+    </label>
 
+        <select name="regimen_fiscal" class="form-select">
+            <option value="">
+                Seleccione...
+            </option>
+            {% for valor, texto  in regimenes %}
+                <option value="{{valor}}"
+                {% if expediente.regimen_fiscal == valor %}selected{% endif %}>
+                    {{texto}}
+                </option>
+            {% endfor %}
+        </select>
+</div>
 
 
 <!-- DIAS CREDITO -->
@@ -314,6 +331,27 @@ type="email"
 name="contacto_email"
 class="form-control"
 value="{{ expediente.contacto_email }}">
+
+
+</div>
+
+
+<!-- CORREO PARA ENVIO DE PAGOS (solo Proveedor) -->
+
+<div class="col-md-4 mb-3" id="campo_correo_pagos" style="display:none;">
+
+<label class="form-label">
+Correo para envío de pagos
+</label>
+
+
+<input 
+type="email"
+name="correo_pagos"
+id="correo_pagos"
+class="form-control"
+value="{{ expediente.correo_pagos }}"
+placeholder="Solo para proveedores">
 
 
 </div>
@@ -442,21 +480,55 @@ const tipo=document.getElementById("tipo_contribuyente");
 
 const camposPF=document.getElementById("campos_pf");
 
+const camposPFInputs=camposPF.querySelectorAll("input");
+
 const razon=document.getElementById("razon_social");
 
 const rfc=document.getElementById("rfc");
 
 const mensaje=document.getElementById("mensaje_rfc");
 
+const tipoExpediente=document.querySelector('select[name="tipo"]');
+const campoCorreoPagos=document.getElementById("campo_correo_pagos");
+const correoPagos=document.getElementById("correo_pagos");
+
+
+function actualizarCorreoPagos(){
+
+if(tipoExpediente.value==="Proveedor"){
+
+campoCorreoPagos.style.display="block";
+correoPagos.disabled=false;
+
+} else {
+
+campoCorreoPagos.style.display="none";
+correoPagos.disabled=true;
+correoPagos.value="";
+
+}
+
+}
+
+
+tipoExpediente.addEventListener("change", actualizarCorreoPagos);
+
+actualizarCorreoPagos();
+
 
 
 function cambiarTipo(){
+
+// Evita el conflicto maxLength < minLength al cambiar de tipo
+rfc.minLength=0;
 
 
 if(tipo.value==="PF"){
 
 
 camposPF.style.display="flex";
+
+camposPFInputs.forEach(i => i.disabled = false);
 
 
 razon.disabled=true;
@@ -486,6 +558,8 @@ else if(tipo.value==="PM"){
 
 camposPF.style.display="none";
 
+camposPFInputs.forEach(i => i.disabled = true);
+
 
 razon.disabled=false;
 
@@ -509,6 +583,16 @@ mensaje.innerHTML=
 }
 
 
+// Si el RFC ya escrito excede el nuevo límite, se recorta y se avisa
+if(rfc.value.length > rfc.maxLength){
+
+rfc.value = rfc.value.slice(0, rfc.maxLength);
+
+mensaje.innerHTML += " <span class='text-danger'>(RFC recortado, verifica el valor antes de guardar)</span>";
+
+}
+
+
 
 }
 
@@ -527,6 +611,20 @@ cambiarTipo();
 
 });
 
+// Todos los campos que deberán escribirse en MAYÚSCULAS
+const camposMayusculas = document.querySelectorAll(`
+    input[type="text"],
+    textarea
+`);
+
+// Convertir mientras escribe, preservando la posición del cursor
+camposMayusculas.forEach(campo => {
+    campo.addEventListener("input", function () {
+        const pos = this.selectionStart;
+        this.value = this.value.toUpperCase();
+        this.setSelectionRange(pos, pos);
+    });
+});
 
 </script>
 

@@ -1,6 +1,7 @@
 import re
 
-def validar_rfc(tipo_contribuyente, rfc):
+
+def validar_rfc(tipo_contribuyente, rfc, expediente_id=None):
     """
     Valida el RFC según el tipo de contribuyente.
 
@@ -8,6 +9,8 @@ def validar_rfc(tipo_contribuyente, rfc):
         (True, "") si es válido.
         (False, "mensaje") si es inválido.
     """
+
+    from .models import Expediente
 
     if not rfc:
         return True, ""
@@ -33,5 +36,14 @@ def validar_rfc(tipo_contribuyente, rfc):
 
         if not re.match(patron_pm, rfc):
             return False, "El RFC de Persona Moral no tiene un formato válido."
+
+    # Verifica que el RFC no esté ya registrado en otro expediente
+    duplicado = Expediente.objects.filter(rfc=rfc)
+
+    if expediente_id:
+        duplicado = duplicado.exclude(pk=expediente_id)
+
+    if duplicado.exists():
+        return False, "Ya existe un expediente registrado con este RFC."
 
     return True, ""

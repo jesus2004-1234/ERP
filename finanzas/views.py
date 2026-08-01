@@ -1,14 +1,13 @@
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db import models
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
-from django.db import models
+from django.db.models import Case, When
 
-from .models import Expediente, ExpedienteDocumento
+from .models import Expediente, ExpedienteDocumento, FacturaCliente
 from .validators import validar_rfc
-
-
 
 # =====================================================
 # LISTADO DE EXPEDIENTES
@@ -97,6 +96,7 @@ def expediente_crear(request):
 
 
 
+
         if not valido:
 
 
@@ -113,6 +113,8 @@ def expediente_crear(request):
                     'tipos': Expediente.Tipo.choices,
                     'estatuses': Expediente.Estatus.choices,
                     'tipos_contribuyente': Expediente.TipoContribuyente.choices,
+                    'regimenes': Expediente.RegimenFiscal.choices,
+                    'estatus_default': Expediente.Estatus.ACTIVO,
                 }
             )
 
@@ -191,6 +193,13 @@ def expediente_crear(request):
 
 
 
+            correo_pagos=request.POST.get(
+                'correo_pagos',
+                ''
+            ) if request.POST.get('tipo') == Expediente.Tipo.PROVEEDOR else '',
+
+
+
             direccion=request.POST.get(
                 'direccion',
                 ''
@@ -220,6 +229,11 @@ def expediente_crear(request):
             observaciones=request.POST.get(
                 'observaciones',
                 ''
+            ),
+
+            regimen_fiscal=request.POST.get(
+                'regimen_fiscal', 
+                ''
             )
 
         )
@@ -248,6 +262,8 @@ def expediente_crear(request):
             'tipos': Expediente.Tipo.choices,
             'estatuses': Expediente.Estatus.choices,
             'tipos_contribuyente': Expediente.TipoContribuyente.choices,
+            'regimenes': Expediente.RegimenFiscal.choices,
+            'estatus_default': Expediente.Estatus.ACTIVO,
         }
     )
 
@@ -281,7 +297,8 @@ def expediente_editar(request, pk):
 
         valido, mensaje = validar_rfc(
             tipo_contribuyente,
-            rfc
+            rfc,
+            expediente_id=pk
         )
 
 
@@ -303,6 +320,7 @@ def expediente_editar(request, pk):
                     'tipos': Expediente.Tipo.choices,
                     'estatuses': Expediente.Estatus.choices,
                     'tipos_contribuyente': Expediente.TipoContribuyente.choices,
+                    'regimenes': Expediente.RegimenFiscal.choices,
                 }
             )
 
@@ -338,6 +356,7 @@ def expediente_editar(request, pk):
                 'apellido_materno',
                 ''
             )
+
 
 
 
@@ -379,6 +398,11 @@ def expediente_editar(request, pk):
 
         expediente.rfc = rfc or None
 
+        expediente.regimen_fiscal = request.POST.get(
+            'regimen_fiscal',
+            ''
+        )
+
 
 
         expediente.contacto_nombre = request.POST.get(
@@ -397,6 +421,12 @@ def expediente_editar(request, pk):
             'contacto_email',
             ''
         )
+
+
+        expediente.correo_pagos = request.POST.get(
+            'correo_pagos',
+            ''
+        ) if expediente.tipo == Expediente.Tipo.PROVEEDOR else ''
 
 
         expediente.direccion = request.POST.get(
@@ -459,6 +489,7 @@ def expediente_editar(request, pk):
             'tipos': Expediente.Tipo.choices,
             'estatuses': Expediente.Estatus.choices,
             'tipos_contribuyente': Expediente.TipoContribuyente.choices,
+            'regimenes': Expediente.RegimenFiscal.choices,
         }
     )
 
@@ -471,6 +502,7 @@ def expediente_editar(request, pk):
 # =====================================================
 
 @never_cache
+@require_POST
 @login_required
 def expediente_eliminar(request, pk):
 
@@ -484,7 +516,7 @@ def expediente_eliminar(request, pk):
 
     if request.method == 'POST':
 
-
+        expediente.archivo.delete(save=False)
         expediente.delete()
 
 
@@ -523,10 +555,21 @@ def expediente_detalle(request, pk):
         pk=pk
     )
 
+    categorias = ExpedienteDocumento.Categoria.choices
 
-    documentos = expediente.documentos.all()
+    # Orden según la posición de cada categoría dentro del TextChoices
+    orden_categoria = Case(
+        *[
+            When(categoria=valor, then=pos)
+            for pos, (valor, texto) in enumerate(categorias)
+        ]
+    )
 
-
+    documentos = (
+        expediente.documentos
+        .all()
+        .order_by(orden_categoria, '-fecha_subida')
+    )
 
     return render(
         request,
@@ -534,13 +577,9 @@ def expediente_detalle(request, pk):
         {
             'expediente': expediente,
             'documentos': documentos,
-            'categorias': ExpedienteDocumento.Categoria.choices,
+            'categorias': categorias,
         }
     )
-
-
-
-
 
 # =====================================================
 # SUBIR DOCUMENTO AL EXPEDIENTE
@@ -632,6 +671,9 @@ def expediente_documento_eliminar(request, pk):
     expediente_id = documento.expediente.pk
 
 
+    # Elimina el archivo físico del storage antes de borrar el registro
+    documento.archivo.delete(save=False)
+
 
     documento.delete()
 
@@ -647,4 +689,43 @@ def expediente_documento_eliminar(request, pk):
     return redirect(
         'expediente_detalle',
         pk=expediente_id
+    )
+
+
+@login_required
+@never_cache
+def facturas_lista(request):
+
+    busqueda = request.GET.get("q", "")
+    estatus = request.GET.get("estatus", "")
+
+    facturas = (
+        FacturaCliente.objects
+        .select_related("expediente")
+        .all()
+        .order_by("-fecha_factura")
+    )
+
+    if busqueda:
+        facturas = facturas.filter(
+            models.Q(factura__icontains=busqueda) |
+            models.Q(expediente__razon_social__icontains=busqueda) |
+            models.Q(expediente__nombres__icontains=busqueda) |
+            models.Q(expediente__rfc__icontains=busqueda)
+        )
+
+    if estatus:
+        facturas = facturas.filter(
+            estatus=estatus
+        )
+
+    return render(
+        request,
+        "finanzas/cxc/lista.html",
+        {
+            "facturas": facturas,
+            "busqueda": busqueda,
+            "estatus_actual": estatus,
+            "estatuses": FacturaCliente.Estatus.choices,
+        },
     )

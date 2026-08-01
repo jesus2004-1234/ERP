@@ -118,6 +118,10 @@
 
                     <tr>
 
+                        <th class="text-center">
+                            Tipo
+                        </th>
+
                         <th>
                             Nombre / Razón social
                         </th>
@@ -130,9 +134,6 @@
                             Contribuyente
                         </th>
 
-                        <th class="text-center">
-                            Tipo
-                        </th>
 
                         <th class="text-center">
                             Días crédito
@@ -156,6 +157,10 @@
                     {% for expediente in expedientes %}
 
                     <tr>
+
+                        <td class="text-center">
+                            {{ expediente.get_tipo_display }}
+                        </td>
 
                         <td>
                             {{ expediente.nombre_completo }}
@@ -183,11 +188,6 @@
 
                             {% endif %}
 
-                        </td>
-
-
-                        <td class="text-center">
-                            {{ expediente.get_tipo_display }}
                         </td>
 
 
