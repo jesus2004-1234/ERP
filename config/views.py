@@ -18,7 +18,7 @@ def dashboard(request):
 
     modulos = {
         "CIT": "ti_dashboard",
-        "GAF": "finanzas_dashboard",
+        "CPF": "finanzas_dashboard",
     }
 
 

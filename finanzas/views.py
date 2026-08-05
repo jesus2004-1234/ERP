@@ -9,6 +9,25 @@ from django.db.models import Case, When
 from .models import Expediente, ExpedienteDocumento, FacturaCliente
 from .validators import validar_rfc
 
+
+@login_required
+def dashboard(request):
+    """
+    Dashboard principal del módulo de Finanzas.
+    """
+
+    context = {
+        "total_ingresos": "$0.00",
+        "total_egresos": "$0.00",
+        "balance_actual": "$0.00",
+        "alertas_financieras": 0,
+    }
+
+    return render(
+        request,
+        "finanzas/finanzas_dashboard.html",
+        context,
+    )
 # =====================================================
 # LISTADO DE EXPEDIENTES
 # =====================================================

@@ -1,0 +1,50 @@
+{% extends "finanzas/base_finanzas.html" %}
+
+{% block title %}Dashboard - ERP PLANEACION Y CONTROL FINANCIERO{% endblock %}
+{% block menu_dashboard %}active{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- Tarjetas de resumen -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card border-primary">
+            <div class="card-body text-center">
+                <i class="bi bi-cash fs-1 text-primary"></i>
+                <h3 class="mt-2">{{ total_ingresos }}</h3>
+                <p class="text-muted mb-0">Ingresos</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-success">
+            <div class="card-body text-center">
+                <i class="bi bi-credit-card fs-1 text-success"></i>
+                <h3 class="mt-2">{{ total_egresos }}</h3>
+                <p class="text-muted mb-0">Egresos</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-warning">
+            <div class="card-body text-center">
+                <i class="bi bi-pie-chart fs-1 text-warning"></i>
+                <h3 class="mt-2">{{ balance_actual }}</h3>
+                <p class="text-muted mb-0">Balance actual</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-danger">
+            <div class="card-body text-center">
+                <i class="bi bi-exclamation-triangle fs-1 text-danger"></i>
+                <h3 class="mt-2">{{ alertas_financieras }}</h3>
+                <p class="text-muted mb-0">Alertas financieras</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
