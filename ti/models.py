@@ -43,7 +43,7 @@ class Empleado(models.Model):
     @property
     def tiene_telefono(self):
         return self.asignaciones.filter(
-            equipo__tipo='Teléfono',
+            equipo__tipo='Telefono',
             estatus='Asignado'
         ).exists()
 
@@ -113,7 +113,7 @@ class Asignacion(models.Model):
     )
 
     class Meta:
-        verbose_name = "Asignación"
+        verbose_name = "Asignacion"
         verbose_name_plural = "Asignaciones"
         ordering = ['-fecha_asignacion']
 
@@ -166,8 +166,8 @@ class Mantenimiento(models.Model):
 class Correos(models.Model):
 
     class Tipo(models.TextChoices):
-        CORREO = 'Correo', 'Correo electrónico'
-        LINEA  = 'Linea',  'Línea telefónica'
+        CORREO = 'Correo', 'Correo electronico'
+        LINEA  = 'Linea',  'Línea telefonica'
 
     class EstatusCorreo(models.TextChoices):
         DISPONIBLE = 'Disponible', 'Disponible'
