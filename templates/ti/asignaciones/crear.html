@@ -8,7 +8,7 @@
 
 <div class="card">
     <div class="card-body">
-        <form method="post">
+        <form method="post" enctype="multipart/form-data">
             {% csrf_token %}
             <div class="row">
                 <div class="col-md-6 mb-3">
@@ -43,6 +43,16 @@
                 <div class="col-md-6 mb-3">
                     <label class="form-label">Entregado por</label>
                     <input type="text" name="entregado_por" class="form-control">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Carta Responsiva de Asignación</label>
+                    <input type="file" name="archivo_resguardo" class="form-control">
+                    <div class="form-text">Opcional. PDF o imagen del acta firmada.</div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Carta Responsiva de Devolución</label>
+                    <input type="file" name="archivo_devolucion" class="form-control">
+                    <div class="form-text">Opcional. Normalmente se sube después, al editar, cuando se devuelve el equipo.</div>
                 </div>
             </div>
             <div class="d-flex gap-2">

@@ -37,6 +37,14 @@ def validar_rfc(tipo_contribuyente, rfc, expediente_id=None):
         if not re.match(patron_pm, rfc):
             return False, "El RFC de Persona Moral no tiene un formato válido."
 
+    # Cualquier otro valor (vacío, None, o algo inesperado) no debe colarse
+    # sin validar formato/longitud del RFC.
+    else:
+        return (
+            False,
+            "Debe especificar un tipo de contribuyente válido (Persona Física o Persona Moral).",
+        )
+
     # Verifica que el RFC no esté ya registrado en otro expediente
     duplicado = Expediente.objects.filter(rfc=rfc)
 

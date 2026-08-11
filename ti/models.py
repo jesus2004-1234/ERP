@@ -61,7 +61,7 @@ class Equipo(models.Model):
         COMPUTADORA = 'Computadora', 'Computadora'
         IMPRESORA   = 'Impresora',   'Impresora'
         PROYECTOR   = 'Proyector',   'Proyector'
-        TELEFONO    = 'Teléfono',    'Teléfono'
+        TELEFONO    = 'Telefono',    'Telefono'
         TECLADO     = 'Teclado',     'Teclado'
         MOUSE       = 'Mouse',       'Mouse'
 
@@ -99,6 +99,18 @@ class Asignacion(models.Model):
     fecha_devolucion = models.DateField(blank=True, null=True)
     estatus          = models.CharField(max_length=20, choices=EstatusAsignacion.choices, default=EstatusAsignacion.ASIGNADO)
     entregado_por    = models.CharField(max_length=100, blank=True, null=True)
+    archivo_resguardo = models.FileField(
+        upload_to='ti/asignaciones/resguardos/%Y/%m/',
+        blank=True,
+        null=True,
+        help_text='Acta de asignación firmada u otro comprobante (PDF, imagen, etc.)',
+    )
+    archivo_devolucion = models.FileField(
+        upload_to='ti/asignaciones/devoluciones/%Y/%m/',
+        blank=True,
+        null=True,
+        help_text='Acta de devolución firmada u otro comprobante (PDF, imagen, etc.)',
+    )
 
     class Meta:
         verbose_name = "Asignación"
@@ -180,8 +192,8 @@ class Correos(models.Model):
 class Consumible(models.Model):
 
     class Categoria(models.TextChoices):
-        PAPELERIA = 'Papelería', 'Papelería'
-        TONER     = 'Tóner',    'Tóner'
+        PAPELERIA = 'Papeleria', 'Papeleria'
+        TONER     = 'Toner',    'Toner'
         CABLE     = 'Cable',    'Cable'
         ACCESORIO = 'Accesorio','Accesorio'
         OTRO      = 'Otro',     'Otro'
@@ -202,4 +214,4 @@ class Consumible(models.Model):
 
     @property
     def stock_bajo(self):
-        return self.stock_actual < 5
+        return self.stock_actual <=5

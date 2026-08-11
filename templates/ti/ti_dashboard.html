@@ -49,32 +49,53 @@
 <!-- Gráficas -->
 <div class="row mb-4">
     <div class="col-md-4">
-        <div class="card h-100">
-            <div class="card-header">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
                 <h6 class="mb-0"><i class="bi bi-laptop"></i> Equipos por tipo</h6>
+                <span class="badge rounded-pill text-bg-light" id="totalEquiposTipo">—</span>
             </div>
             <div class="card-body">
-                <canvas id="chartEquiposTipo" height="250"></canvas>
+                <div class="chart-wrap" id="wrapEquiposTipo" style="position: relative; height: 280px; max-height: 420px; overflow-y: auto; overflow-x: hidden;">
+                    <canvas id="chartEquiposTipo"></canvas>
+                    <div class="chart-empty text-center text-muted py-5" id="emptyEquiposTipo" style="display:none;">
+                        <i class="bi bi-inbox fs-2"></i>
+                        <p class="mb-0 mt-2">Sin equipos registrados</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-md-4">
-        <div class="card h-100">
-            <div class="card-header">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
                 <h6 class="mb-0"><i class="bi bi-circle-half"></i> Equipos por estatus</h6>
+                <span class="badge rounded-pill text-bg-light" id="totalEquiposEstatus">—</span>
             </div>
             <div class="card-body">
-                <canvas id="chartEquiposEstatus" height="250"></canvas>
+                <div class="chart-wrap" style="position: relative; height: 280px;">
+                    <canvas id="chartEquiposEstatus"></canvas>
+                    <div class="chart-empty text-center text-muted py-5" id="emptyEquiposEstatus" style="display:none;">
+                        <i class="bi bi-inbox fs-2"></i>
+                        <p class="mb-0 mt-2">Sin equipos registrados</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-md-4">
-        <div class="card h-100">
-            <div class="card-header">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
                 <h6 class="mb-0"><i class="bi bi-box-seam"></i> Consumibles por categoría</h6>
+                <span class="badge rounded-pill text-bg-light" id="totalConsumibles">—</span>
             </div>
             <div class="card-body">
-                <canvas id="chartConsumibles" height="250"></canvas>
+                <div class="chart-wrap" style="position: relative; height: 280px;">
+                    <canvas id="chartConsumibles"></canvas>
+                    <div class="chart-empty text-center text-muted py-5" id="emptyConsumibles" style="display:none;">
+                        <i class="bi bi-inbox fs-2"></i>
+                        <p class="mb-0 mt-2">Sin consumibles registrados</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -158,72 +179,291 @@
     </div>
 </div>
 
-<!-- Chart.js -->
+<!-- Chart.js + plugin de etiquetas de datos -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <script>
-const COLORES = [
-    'rgba(54, 162, 235, 0.8)',
-    'rgba(255, 206, 86, 0.8)',
-    'rgba(75, 192, 192, 0.8)',
-    'rgba(255, 99, 132, 0.8)',
-    'rgba(153, 102, 255, 0.8)',
-    'rgba(255, 159, 64, 0.8)',
+// ====== Paleta de marca DOSA (navy / gold) + tonos complementarios ======
+const NAVY  = '#2a3e4d';
+const GOLD  = '#deab3a';
+const PALETA = [
+    '#2a3e4d', // navy
+    '#deab3a', // gold
+    '#5b8a9a', // slate azulado
+    '#c97b4a', // terracota
+    '#7d9b76', // verde salvia
+    '#8a6d9c', // morado suave
 ];
 
-// Equipos por tipo
-new Chart(document.getElementById('chartEquiposTipo'), {
-    type: 'bar',
-    data: {
-        labels: {{ equipos_labels|safe }},
-        datasets: [{
-            label: 'Equipos',
-            data: {{ equipos_data|safe }},
-            backgroundColor: COLORES,
-            borderRadius: 6,
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
-    }
-});
+Chart.register(ChartDataLabels);
+Chart.defaults.font.family = "'Segoe UI', system-ui, -apple-system, sans-serif";
+Chart.defaults.plugins.datalabels.display = false; // se activa por gráfica
 
-// Equipos por estatus
-new Chart(document.getElementById('chartEquiposEstatus'), {
-    type: 'doughnut',
-    data: {
-        labels: {{ estatus_labels|safe }},
-        datasets: [{
-            data: {{ estatus_data|safe }},
-            backgroundColor: COLORES,
-            borderWidth: 2,
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: { legend: { position: 'bottom' } },
-        cutout: '65%'
-    }
-});
+// ====== Plugin: texto central en las gráficas de dona (total) ======
+const textoCentralDona = {
+    id: 'textoCentralDona',
+    afterDraw(chart) {
+        const opts = chart.config.options.plugins.textoCentralDona;
+        if (!opts || !opts.mostrar) return;
 
-// Consumibles por categoría
-new Chart(document.getElementById('chartConsumibles'), {
-    type: 'doughnut',
-    data: {
-        labels: {{ consumibles_labels|safe }},
-        datasets: [{
-            data: {{ consumibles_data|safe }},
-            backgroundColor: COLORES,
-            borderWidth: 2,
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: { legend: { position: 'bottom' } },
-        cutout: '65%'
+        const { ctx, chartArea: { left, right, top, bottom } } = chart;
+        const centroX = (left + right) / 2;
+        const centroY = (top + bottom) / 2;
+
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        ctx.font = 'bold 22px sans-serif';
+        ctx.fillStyle = NAVY;
+        ctx.fillText(opts.total, centroX, centroY - 10);
+
+        ctx.font = '12px sans-serif';
+        ctx.fillStyle = '#6c757d';
+        ctx.fillText(opts.etiqueta, centroX, centroY + 14);
+
+        ctx.restore();
     }
-});
+};
+
+// ====== Helper: arma tooltip con cantidad + porcentaje ======
+function tooltipConPorcentaje(context) {
+    const valor = context.parsed.y !== undefined ? context.parsed.y : context.parsed;
+    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+    const porcentaje = total > 0 ? ((valor / total) * 100).toFixed(1) : 0;
+    return `${context.label}: ${valor} (${porcentaje}%)`;
+}
+
+// ====== Datos desde Django ======
+const equiposLabels     = {{ equipos_labels|safe }};
+const equiposData       = {{ equipos_data|safe }};
+const estatusLabels     = {{ estatus_labels|safe }};
+const estatusData       = {{ estatus_data|safe }};
+const consumiblesLabels = {{ consumibles_labels|safe }};
+const consumiblesData   = {{ consumibles_data|safe }};
+
+function sumar(arr) { return arr.reduce((a, b) => a + b, 0); }
+
+// ====== Equipos por tipo (barra horizontal, con etiquetas de valor) ======
+const totalEquiposTipoEl = document.getElementById('totalEquiposTipo');
+if (equiposData.length === 0 || sumar(equiposData) === 0) {
+    document.getElementById('chartEquiposTipo').style.display = 'none';
+    document.getElementById('emptyEquiposTipo').style.display = 'block';
+    totalEquiposTipoEl.textContent = '0';
+} else {
+    totalEquiposTipoEl.textContent = `Total: ${sumar(equiposData)}`;
+
+    // Altura dinámica: cada barra necesita ~40px para no verse aplastada,
+    // sin importar si hay 3 tipos de equipo o 15. El wrapper tiene
+    // overflow-y:auto con un tope de 420px, así que si crece demasiado
+    // se vuelve scrolleable en vez de deformar las barras.
+    const wrapEquiposTipo = document.getElementById('wrapEquiposTipo');
+    const alturaCalculada = Math.max(260, equiposLabels.length * 40 + 40);
+    wrapEquiposTipo.style.height = alturaCalculada + 'px';
+
+    // En pantallas angostas (celular) se reducen fuentes y se prioriza
+    // legibilidad sobre densidad de información.
+    const esMovil = () => window.innerWidth < 480;
+
+    new Chart(document.getElementById('chartEquiposTipo'), {
+        type: 'bar',
+        data: {
+            labels: equiposLabels,
+            datasets: [{
+                label: 'Equipos',
+                data: equiposData,
+                backgroundColor: PALETA,
+                borderRadius: 6,
+                maxBarThickness: 34,
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'nearest', intersect: true },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'bottom',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 12,
+                        boxWidth: 8,
+                        // Por defecto Chart.js arma la leyenda por DATASET, no por
+                        // barra individual. Aquí hay un solo dataset ("Equipos")
+                        // con un color distinto por barra, así que se genera la
+                        // leyenda a mano: un ítem por tipo de equipo, con su color.
+                        generateLabels: (chart) => {
+                            const data = chart.data;
+                            if (!data.labels.length || !data.datasets.length) return [];
+                            const meta = chart.getDatasetMeta(0);
+                            return data.labels.map((etiqueta, i) => ({
+                                text: `${etiqueta} (${data.datasets[0].data[i]})`,
+                                fillStyle: PALETA[i % PALETA.length],
+                                strokeStyle: PALETA[i % PALETA.length],
+                                lineWidth: 0,
+                                hidden: meta.data[i]?.hidden || false,
+                                index: i,
+                            }));
+                        }
+                    },
+                    onClick: (evento, item, legend) => {
+                        // Clic en la leyenda oculta/muestra esa barra específica
+                        // (en vez del comportamiento default de ocultar un dataset completo).
+                        const chart = legend.chart;
+                        const meta = chart.getDatasetMeta(0);
+                        const punto = meta.data[item.index];
+                        punto.hidden = !punto.hidden;
+                        chart.update();
+                    }
+                },
+                tooltip: {
+                    backgroundColor: NAVY,
+                    padding: 10,
+                    callbacks: { label: tooltipConPorcentaje }
+                },
+                datalabels: {
+                    display: true,
+                    anchor: 'end',
+                    align: 'end',
+                    color: NAVY,
+                    font: { weight: 'bold', size: () => esMovil() ? 10 : 12 },
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1, precision: 0, font: { size: () => esMovil() ? 10 : 12 } },
+                    grid: { color: '#f0f0f0' },
+                },
+                y: {
+                    grid: { display: false },
+                    ticks: { font: { size: () => esMovil() ? 10 : 12 } }
+                }
+            },
+            animation: { duration: 700, easing: 'easeOutQuart' }
+        }
+    });
+
+    // Chart.js ya redibuja el canvas al cambiar el tamaño de su contenedor
+    // (responsive:true), pero como los tamaños de fuente son funciones que
+    // dependen del ancho de ventana, forzamos un resize al cambiar de
+    // orientación/tamaño para que se recalculen esos valores.
+    let resizeTimeout;
+    window.addEventListener('resize', function () {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(function () {
+            Chart.getChart('chartEquiposTipo')?.resize();
+        }, 150);
+    });
+}
+
+// ====== Equipos por estatus (dona con total al centro y % en leyenda) ======
+const totalEquiposEstatusEl = document.getElementById('totalEquiposEstatus');
+if (estatusData.length === 0 || sumar(estatusData) === 0) {
+    document.getElementById('chartEquiposEstatus').style.display = 'none';
+    document.getElementById('emptyEquiposEstatus').style.display = 'block';
+    totalEquiposEstatusEl.textContent = '0';
+} else {
+    const totalEstatus = sumar(estatusData);
+    totalEquiposEstatusEl.textContent = `Total: ${totalEstatus}`;
+    new Chart(document.getElementById('chartEquiposEstatus'), {
+        type: 'doughnut',
+        data: {
+            labels: estatusLabels,
+            datasets: [{
+                data: estatusData,
+                backgroundColor: PALETA,
+                borderWidth: 2,
+                borderColor: '#fff',
+                hoverOffset: 8,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '68%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { usePointStyle: true, padding: 14, boxWidth: 8 }
+                },
+                tooltip: {
+                    backgroundColor: NAVY,
+                    padding: 10,
+                    callbacks: { label: tooltipConPorcentaje }
+                },
+                datalabels: {
+                    display: true,
+                    color: '#fff',
+                    font: { weight: 'bold', size: 12 },
+                    formatter: (valor, ctx) => {
+                        const total = sumar(ctx.dataset.data);
+                        const pct = total > 0 ? (valor / total) * 100 : 0;
+                        return pct >= 6 ? pct.toFixed(0) + '%' : '';
+                    }
+                },
+                textoCentralDona: { mostrar: true, total: totalEstatus, etiqueta: 'equipos' }
+            },
+            animation: { duration: 700, easing: 'easeOutQuart' }
+        },
+        plugins: [textoCentralDona]
+    });
+}
+
+// ====== Consumibles por categoría (dona con total al centro y % en leyenda) ======
+const totalConsumiblesEl = document.getElementById('totalConsumibles');
+if (consumiblesData.length === 0 || sumar(consumiblesData) === 0) {
+    document.getElementById('chartConsumibles').style.display = 'none';
+    document.getElementById('emptyConsumibles').style.display = 'block';
+    totalConsumiblesEl.textContent = '0';
+} else {
+    const totalConsumibles = sumar(consumiblesData);
+    totalConsumiblesEl.textContent = `Total: ${totalConsumibles}`;
+    new Chart(document.getElementById('chartConsumibles'), {
+        type: 'doughnut',
+        data: {
+            labels: consumiblesLabels,
+            datasets: [{
+                data: consumiblesData,
+                backgroundColor: PALETA,
+                borderWidth: 2,
+                borderColor: '#fff',
+                hoverOffset: 8,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '68%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { usePointStyle: true, padding: 14, boxWidth: 8 }
+                },
+                tooltip: {
+                    backgroundColor: NAVY,
+                    padding: 10,
+                    callbacks: { label: tooltipConPorcentaje }
+                },
+                datalabels: {
+                    display: true,
+                    color: '#fff',
+                    font: { weight: 'bold', size: 12 },
+                    formatter: (valor, ctx) => {
+                        const total = sumar(ctx.dataset.data);
+                        const pct = total > 0 ? (valor / total) * 100 : 0;
+                        return pct >= 6 ? pct.toFixed(0) + '%' : '';
+                    }
+                },
+                textoCentralDona: { mostrar: true, total: totalConsumibles, etiqueta: 'items' }
+            },
+            animation: { duration: 700, easing: 'easeOutQuart' }
+        },
+        plugins: [textoCentralDona]
+    });
+}
 </script>
 
 {% endblock %}

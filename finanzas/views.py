@@ -1,15 +1,22 @@
+from decimal import Decimal, InvalidOperation
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
 from django.db import models
+from django.db.models import Case, DecimalField, ExpressionWrapper, F, Q, Sum, Value, When
+from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
-from django.db.models import Case, When
 
-from .models import Expediente, ExpedienteDocumento, FacturaCliente
+from .models import Expediente, ExpedienteDocumento, FacturaCliente, PagoCliente
 from .validators import validar_rfc
 
 
+@never_cache
 @login_required
 def dashboard(request):
     """
@@ -28,6 +35,56 @@ def dashboard(request):
         "finanzas/finanzas_dashboard.html",
         context,
     )
+
+
+# =====================================================
+# HELPERS
+# =====================================================
+
+def _dias_credito_desde_post(post):
+    """Castea dias_credito a int de forma segura. Devuelve 0 si no es válido."""
+    try:
+        return int(post.get('dias_credito') or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _limite_credito_desde_post(post):
+    """Castea limite_credito a Decimal de forma segura. Devuelve None si no es válido."""
+    valor = post.get('limite_credito')
+    if not valor:
+        return None
+    try:
+        return Decimal(valor)
+    except InvalidOperation:
+        return None
+
+
+def _datos_expediente_desde_post(post, tipo_contribuyente, rfc):
+    """
+    Arma el diccionario de campos comunes entre crear y editar expediente,
+    evitando duplicar la misma lista larga de request.POST.get(...) dos veces.
+    """
+    tipo = post.get('tipo')
+
+    return {
+        'tipo': tipo,
+        'tipo_contribuyente': tipo_contribuyente,
+        'nombre_comercial': post.get('nombre_comercial', ''),
+        'rfc': rfc or None,
+        'regimen_fiscal': post.get('regimen_fiscal', ''),
+        'contacto_nombre': post.get('contacto_nombre', ''),
+        'contacto_telefono': post.get('contacto_telefono', ''),
+        'contacto_email': post.get('contacto_email', ''),
+        'correo_pagos': post.get('correo_pagos', '') if tipo == Expediente.Tipo.PROVEEDOR else '',
+        'direccion': post.get('direccion', ''),
+        'dias_credito': _dias_credito_desde_post(post),
+        'limite_credito': _limite_credito_desde_post(post),
+        'estatus': post.get('estatus', Expediente.Estatus.ACTIVO),
+        'observaciones': post.get('observaciones', ''),
+    }
+
+
 # =====================================================
 # LISTADO DE EXPEDIENTES
 # =====================================================
@@ -40,39 +97,30 @@ def expedientes_lista(request):
     tipo = request.GET.get('tipo', '')
     estatus = request.GET.get('estatus', '')
 
-
     expedientes = Expediente.objects.all()
 
-
     if busqueda:
-
         expedientes = expedientes.filter(
-            models.Q(razon_social__icontains=busqueda) |
-            models.Q(nombre_comercial__icontains=busqueda) |
-            models.Q(rfc__icontains=busqueda)
+            Q(razon_social__icontains=busqueda) |
+            Q(nombre_comercial__icontains=busqueda) |
+            Q(rfc__icontains=busqueda)
         )
-
 
     if tipo:
-
-        expedientes = expedientes.filter(
-            tipo=tipo
-        )
-
+        expedientes = expedientes.filter(tipo=tipo)
 
     if estatus:
+        expedientes = expedientes.filter(estatus=estatus)
 
-        expedientes = expedientes.filter(
-            estatus=estatus
-        )
-
-
+    paginator = Paginator(expedientes, 25)
+    page_obj = paginator.get_page(request.GET.get('page'))
 
     return render(
         request,
         'finanzas/expedientes/lista.html',
         {
-            'expedientes': expedientes,
+            'expedientes': page_obj,
+            'page_obj': page_obj,
             'busqueda': busqueda,
             'tipo_actual': tipo,
             'estatus_actual': estatus,
@@ -80,9 +128,6 @@ def expedientes_lista(request):
             'estatuses': Expediente.Estatus.choices,
         }
     )
-
-
-
 
 
 # =====================================================
@@ -93,38 +138,15 @@ def expedientes_lista(request):
 @login_required
 def expediente_crear(request):
 
-
     if request.method == 'POST':
 
+        tipo_contribuyente = request.POST.get('tipo_contribuyente')
+        rfc = (request.POST.get('rfc') or "").strip().upper()
 
-        tipo_contribuyente = request.POST.get(
-            'tipo_contribuyente'
-        )
-
-
-        rfc = (
-            request.POST.get('rfc') or ""
-        ).strip().upper()
-
-
-
-        valido, mensaje = validar_rfc(
-            tipo_contribuyente,
-            rfc
-        )
-
-
-
+        valido, mensaje = validar_rfc(tipo_contribuyente, rfc)
 
         if not valido:
-
-
-            messages.error(
-                request,
-                mensaje
-            )
-
-
+            messages.error(request, mensaje)
             return render(
                 request,
                 'finanzas/expedientes/crear.html',
@@ -137,142 +159,33 @@ def expediente_crear(request):
                 }
             )
 
-
-
-
-        expediente = Expediente.objects.create(
-
-
-            tipo=request.POST.get(
-                'tipo'
-            ),
-
-
-            tipo_contribuyente=tipo_contribuyente,
-
-
-
-            razon_social=request.POST.get(
-                'razon_social',
-                ''
-            ),
-
-
-
-            nombres=request.POST.get(
-                'nombres',
-                ''
-            ),
-
-
-
-            apellido_paterno=request.POST.get(
-                'apellido_paterno',
-                ''
-            ),
-
-
-
-            apellido_materno=request.POST.get(
-                'apellido_materno',
-                ''
-            ),
-
-
-
-            nombre_comercial=request.POST.get(
-                'nombre_comercial',
-                ''
-            ),
-
-
-
-            rfc=rfc or None,
-
-
-
-            contacto_nombre=request.POST.get(
-                'contacto_nombre',
-                ''
-            ),
-
-
-
-            contacto_telefono=request.POST.get(
-                'contacto_telefono',
-                ''
-            ),
-
-
-
-            contacto_email=request.POST.get(
-                'contacto_email',
-                ''
-            ),
-
-
-
-            correo_pagos=request.POST.get(
-                'correo_pagos',
-                ''
-            ) if request.POST.get('tipo') == Expediente.Tipo.PROVEEDOR else '',
-
-
-
-            direccion=request.POST.get(
-                'direccion',
-                ''
-            ),
-
-
-
-            dias_credito=request.POST.get(
-                'dias_credito'
-            ) or 0,
-
-
-
-            limite_credito=request.POST.get(
-                'limite_credito'
-            ) or None,
-
-
-
-            estatus=request.POST.get(
-                'estatus',
-                Expediente.Estatus.ACTIVO
-            ),
-
-
-
-            observaciones=request.POST.get(
-                'observaciones',
-                ''
-            ),
-
-            regimen_fiscal=request.POST.get(
-                'regimen_fiscal', 
-                ''
-            )
-
-        )
-
-
-
-        messages.success(
-            request,
-            'Expediente creado correctamente.'
-        )
-
-
-
-        return redirect(
-            'expedientes_lista'
-        )
-
-
-
-
+        datos = _datos_expediente_desde_post(request.POST, tipo_contribuyente, rfc)
+
+        # Persona Física: razon_social se arma a partir del nombre
+        # Persona Moral: razon_social viene directo del formulario
+        if tipo_contribuyente == Expediente.TipoContribuyente.FISICA:
+            nombres = request.POST.get('nombres', '')
+            apellido_paterno = request.POST.get('apellido_paterno', '')
+            apellido_materno = request.POST.get('apellido_materno', '')
+            datos.update({
+                'nombres': nombres,
+                'apellido_paterno': apellido_paterno,
+                'apellido_materno': apellido_materno,
+                'razon_social': f"{nombres} {apellido_paterno} {apellido_materno}".strip(),
+            })
+        else:
+            datos.update({
+                'nombres': '',
+                'apellido_paterno': '',
+                'apellido_materno': '',
+                'razon_social': request.POST.get('razon_social', ''),
+            })
+
+        Expediente.objects.create(**datos)
+
+        messages.success(request, 'Expediente creado correctamente.')
+
+        return redirect('expedientes_lista')
 
     return render(
         request,
@@ -286,6 +199,7 @@ def expediente_crear(request):
         }
     )
 
+
 # =====================================================
 # EDITAR EXPEDIENTE
 # =====================================================
@@ -294,43 +208,17 @@ def expediente_crear(request):
 @login_required
 def expediente_editar(request, pk):
 
-    expediente = get_object_or_404(
-        Expediente,
-        pk=pk
-    )
-
+    expediente = get_object_or_404(Expediente, pk=pk)
 
     if request.method == 'POST':
 
+        tipo_contribuyente = request.POST.get('tipo_contribuyente')
+        rfc = (request.POST.get('rfc') or "").strip().upper()
 
-        tipo_contribuyente = request.POST.get(
-            'tipo_contribuyente'
-        )
-
-
-        rfc = (
-            request.POST.get('rfc') or ""
-        ).strip().upper()
-
-
-
-        valido, mensaje = validar_rfc(
-            tipo_contribuyente,
-            rfc,
-            expediente_id=pk
-        )
-
-
+        valido, mensaje = validar_rfc(tipo_contribuyente, rfc, expediente_id=pk)
 
         if not valido:
-
-
-            messages.error(
-                request,
-                mensaje
-            )
-
-
+            messages.error(request, mensaje)
             return render(
                 request,
                 'finanzas/expedientes/editar.html',
@@ -343,162 +231,34 @@ def expediente_editar(request, pk):
                 }
             )
 
-
-
-        expediente.tipo = request.POST.get(
-            'tipo'
-        )
-
-
-        expediente.tipo_contribuyente = tipo_contribuyente
-
-
-
-        # Persona Física
+        datos = _datos_expediente_desde_post(request.POST, tipo_contribuyente, rfc)
 
         if tipo_contribuyente == Expediente.TipoContribuyente.FISICA:
-
-
-            expediente.nombres = request.POST.get(
-                'nombres',
-                ''
-            )
-
-
-            expediente.apellido_paterno = request.POST.get(
-                'apellido_paterno',
-                ''
-            )
-
-
-            expediente.apellido_materno = request.POST.get(
-                'apellido_materno',
-                ''
-            )
-
-
-
-
-            expediente.razon_social = (
-                expediente.nombres +
-                " " +
-                expediente.apellido_paterno +
-                " " +
-                expediente.apellido_materno
-            ).strip()
-
-
-
-        # Persona Moral
-
+            nombres = request.POST.get('nombres', '')
+            apellido_paterno = request.POST.get('apellido_paterno', '')
+            apellido_materno = request.POST.get('apellido_materno', '')
+            datos.update({
+                'nombres': nombres,
+                'apellido_paterno': apellido_paterno,
+                'apellido_materno': apellido_materno,
+                'razon_social': f"{nombres} {apellido_paterno} {apellido_materno}".strip(),
+            })
         else:
+            datos.update({
+                'nombres': '',
+                'apellido_paterno': '',
+                'apellido_materno': '',
+                'razon_social': request.POST.get('razon_social', ''),
+            })
 
-
-            expediente.razon_social = request.POST.get(
-                'razon_social',
-                ''
-            )
-
-
-            expediente.nombres = ''
-
-            expediente.apellido_paterno = ''
-
-            expediente.apellido_materno = ''
-
-
-
-
-        expediente.nombre_comercial = request.POST.get(
-            'nombre_comercial',
-            ''
-        )
-
-
-        expediente.rfc = rfc or None
-
-        expediente.regimen_fiscal = request.POST.get(
-            'regimen_fiscal',
-            ''
-        )
-
-
-
-        expediente.contacto_nombre = request.POST.get(
-            'contacto_nombre',
-            ''
-        )
-
-
-        expediente.contacto_telefono = request.POST.get(
-            'contacto_telefono',
-            ''
-        )
-
-
-        expediente.contacto_email = request.POST.get(
-            'contacto_email',
-            ''
-        )
-
-
-        expediente.correo_pagos = request.POST.get(
-            'correo_pagos',
-            ''
-        ) if expediente.tipo == Expediente.Tipo.PROVEEDOR else ''
-
-
-        expediente.direccion = request.POST.get(
-            'direccion',
-            ''
-        )
-
-
-
-        expediente.dias_credito = request.POST.get(
-            'dias_credito'
-        ) or 0
-
-
-
-        expediente.limite_credito = request.POST.get(
-            'limite_credito'
-        ) or None
-
-
-
-        expediente.estatus = request.POST.get(
-            'estatus',
-            Expediente.Estatus.ACTIVO
-        )
-
-
-
-        expediente.observaciones = request.POST.get(
-            'observaciones',
-            ''
-        )
-
-
+        for campo, valor in datos.items():
+            setattr(expediente, campo, valor)
 
         expediente.save()
 
+        messages.success(request, 'Expediente actualizado correctamente.')
 
-
-        messages.success(
-            request,
-            'Expediente actualizado correctamente.'
-        )
-
-
-
-        return redirect(
-            'expedientes_lista'
-        )
-
-
-
-
+        return redirect('expedientes_lista')
 
     return render(
         request,
@@ -513,53 +273,45 @@ def expediente_editar(request, pk):
     )
 
 
-
-
-
 # =====================================================
 # ELIMINAR EXPEDIENTE
 # =====================================================
 
 @never_cache
-@require_POST
 @login_required
 def expediente_eliminar(request, pk):
 
+    expediente = get_object_or_404(Expediente, pk=pk)
 
-    expediente = get_object_or_404(
-        Expediente,
-        pk=pk
-    )
-
-
-
+    # NOTA: Expediente no tiene campo "archivo" propio (eso vive en
+    # ExpedienteDocumento). Además, ExpedienteDocumento y FacturaCliente usan
+    # on_delete=PROTECT hacia Expediente, así que Django ya impide borrar un
+    # expediente que tenga documentos o facturas asociadas: solo hace falta
+    # capturar esa excepción y mostrar un mensaje claro.
     if request.method == 'POST':
 
-        expediente.archivo.delete(save=False)
-        expediente.delete()
+        try:
+            expediente.delete()
+        except models.ProtectedError:
+            messages.error(
+                request,
+                'No se puede eliminar el expediente porque tiene documentos o facturas '
+                'relacionadas. Elimine primero esos registros, o bien cambie el '
+                'expediente a estatus Inactivo en lugar de borrarlo.'
+            )
+            return redirect('expedientes_lista')
 
+        messages.success(request, 'Expediente eliminado correctamente.')
 
+        return redirect('expedientes_lista')
 
-        messages.success(
-            request,
-            'Expediente eliminado correctamente.'
-        )
-
-
-
-        return redirect(
-            'expedientes_lista'
-        )
-
-
-
+    # GET: muestra la página de confirmación antes de borrar de verdad.
     return render(
         request,
         'finanzas/expedientes/eliminar.html',
-        {
-            'expediente': expediente
-        }
+        {'expediente': expediente}
     )
+
 
 # =====================================================
 # DETALLE DEL EXPEDIENTE
@@ -569,19 +321,13 @@ def expediente_eliminar(request, pk):
 @login_required
 def expediente_detalle(request, pk):
 
-    expediente = get_object_or_404(
-        Expediente,
-        pk=pk
-    )
+    expediente = get_object_or_404(Expediente, pk=pk)
 
     categorias = ExpedienteDocumento.Categoria.choices
 
     # Orden según la posición de cada categoría dentro del TextChoices
     orden_categoria = Case(
-        *[
-            When(categoria=valor, then=pos)
-            for pos, (valor, texto) in enumerate(categorias)
-        ]
+        *[When(categoria=valor, then=pos) for pos, (valor, texto) in enumerate(categorias)]
     )
 
     documentos = (
@@ -600,6 +346,7 @@ def expediente_detalle(request, pk):
         }
     )
 
+
 # =====================================================
 # SUBIR DOCUMENTO AL EXPEDIENTE
 # =====================================================
@@ -608,68 +355,24 @@ def expediente_detalle(request, pk):
 @require_POST
 def expediente_documento_subir(request, pk):
 
+    expediente = get_object_or_404(Expediente, pk=pk)
 
-    expediente = get_object_or_404(
-        Expediente,
-        pk=pk
-    )
-
-
-
-    categoria = request.POST.get(
-        'categoria'
-    )
-
-
-    archivo = request.FILES.get(
-        'archivo'
-    )
-
-
+    categoria = request.POST.get('categoria')
+    archivo = request.FILES.get('archivo')
 
     if not categoria or not archivo:
-
-
-        messages.error(
-            request,
-            'Debe seleccionar una categoría y un archivo.'
-        )
-
-
-        return redirect(
-            'expediente_detalle',
-            pk=pk
-        )
-
-
-
+        messages.error(request, 'Debe seleccionar una categoría y un archivo.')
+        return redirect('expediente_detalle', pk=pk)
 
     ExpedienteDocumento.objects.create(
-
         expediente=expediente,
-
         categoria=categoria,
-
-        archivo=archivo
-
+        archivo=archivo,
     )
 
+    messages.success(request, 'Documento agregado correctamente.')
 
-
-    messages.success(
-        request,
-        'Documento agregado correctamente.'
-    )
-
-
-
-    return redirect(
-        'expediente_detalle',
-        pk=pk
-    )
-
-
-
+    return redirect('expediente_detalle', pk=pk)
 
 
 # =====================================================
@@ -680,36 +383,22 @@ def expediente_documento_subir(request, pk):
 @require_POST
 def expediente_documento_eliminar(request, pk):
 
-
-    documento = get_object_or_404(
-        ExpedienteDocumento,
-        pk=pk
-    )
-
+    documento = get_object_or_404(ExpedienteDocumento, pk=pk)
 
     expediente_id = documento.expediente.pk
 
-
     # Elimina el archivo físico del storage antes de borrar el registro
     documento.archivo.delete(save=False)
-
-
     documento.delete()
 
+    messages.success(request, 'Documento eliminado correctamente.')
+
+    return redirect('expediente_detalle', pk=expediente_id)
 
 
-    messages.success(
-        request,
-        'Documento eliminado correctamente.'
-    )
-
-
-
-    return redirect(
-        'expediente_detalle',
-        pk=expediente_id
-    )
-
+# =====================================================
+# LISTADO DE FACTURAS (CxC)
+# =====================================================
 
 @login_required
 @never_cache
@@ -718,33 +407,673 @@ def facturas_lista(request):
     busqueda = request.GET.get("q", "")
     estatus = request.GET.get("estatus", "")
 
-    facturas = (
+    facturas_base = (
         FacturaCliente.objects
         .select_related("expediente")
         .all()
-        .order_by("-fecha_factura")
     )
+
+    # Las facturas canceladas ya no representan una cuenta por cobrar real
+    # (nunca tienen pagos, por regla en factura_cancelar), así que se excluyen
+    # de los indicadores para no inflar totales ni marcar como "vencidas"
+    # facturas que en realidad ya no están activas. Sí se conservan en el
+    # listado/búsqueda de abajo, para trazabilidad.
+    facturas_activas = facturas_base.exclude(estatus=FacturaCliente.Estatus.CANCELADA)
+
+    # --- Indicadores (calculados sobre el total activo, sin aplicar filtros de búsqueda) ---
+    # total_pagado, saldo_pendiente y vencida son @property en el modelo (se derivan
+    # de la suma de PagoCliente relacionados), no columnas reales.
+    #
+    # IMPORTANTE: con soporte multi-moneda, no se puede sumar el campo "total" en
+    # crudo entre facturas de distinta moneda (mezclaría MXN con USD como si fueran
+    # la misma unidad). Cada factura se convierte a MXN con su propio tipo_cambio
+    # antes de sumarla, para que las tarjetas siempre muestren un total en pesos.
+    monto_mxn = ExpressionWrapper(
+        F("total") * F("tipo_cambio"),
+        output_field=DecimalField(max_digits=14, decimal_places=2),
+    )
+    total_facturado = facturas_activas.aggregate(t=Sum(monto_mxn))["t"] or 0
+
+    pago_mxn = ExpressionWrapper(
+        F("monto") * F("factura__tipo_cambio"),
+        output_field=DecimalField(max_digits=14, decimal_places=2),
+    )
+    total_cobrado = (
+        PagoCliente.objects
+        .filter(factura__in=facturas_activas)
+        .aggregate(t=Sum(pago_mxn))["t"] or 0
+    )
+
+    saldo_pendiente = total_facturado - total_cobrado
+
+    # Para "vencidas" comparamos el saldo dentro de la MISMA moneda de cada
+    # factura (total vs. lo pagado de esa factura) — aquí no hace falta convertir,
+    # porque es una comparación interna, no una suma acumulada entre monedas.
+    total_vencidas = (
+        facturas_activas
+        .annotate(
+            pagado_calc=Coalesce(
+                Sum("pagos__monto"),
+                Value(Decimal("0")),
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            )
+        )
+        .filter(
+            fecha_vencimiento__lt=timezone.now().date(),
+            total__gt=F("pagado_calc"),
+        )
+        .count()
+    )
+
+    # --- Filtros de búsqueda para la tabla ---
+    # Aquí sí se parte de facturas_base (no facturas_activas): el usuario debe
+    # poder seguir viendo/buscando facturas canceladas en el listado.
+    facturas = facturas_base.order_by("-fecha_factura")
 
     if busqueda:
         facturas = facturas.filter(
-            models.Q(factura__icontains=busqueda) |
-            models.Q(expediente__razon_social__icontains=busqueda) |
-            models.Q(expediente__nombres__icontains=busqueda) |
-            models.Q(expediente__rfc__icontains=busqueda)
+            Q(factura__icontains=busqueda) |
+            Q(expediente__razon_social__icontains=busqueda) |
+            Q(expediente__nombres__icontains=busqueda) |
+            Q(expediente__rfc__icontains=busqueda)
         )
 
     if estatus:
-        facturas = facturas.filter(
-            estatus=estatus
-        )
+        facturas = facturas.filter(estatus=estatus)
+
+    paginator = Paginator(facturas, 25)
+    page_obj = paginator.get_page(request.GET.get('page'))
 
     return render(
         request,
         "finanzas/cxc/lista.html",
         {
-            "facturas": facturas,
+            "facturas": page_obj,
+            "page_obj": page_obj,
             "busqueda": busqueda,
             "estatus_actual": estatus,
             "estatuses": FacturaCliente.Estatus.choices,
+            "total_facturado": total_facturado,
+            "total_cobrado": total_cobrado,
+            "saldo_pendiente": saldo_pendiente,
+            "total_vencidas": total_vencidas,
         },
+    )
+
+
+# =====================================================
+# CREAR FACTURA (CxC)
+# =====================================================
+
+@login_required
+@never_cache
+def factura_crear(request):
+
+    # CxC son facturas que deben los CLIENTES, no los proveedores.
+    # Filtramos a expedientes tipo Cliente o Ambos para no permitir
+    # capturar por error una factura de cliente contra un proveedor puro.
+    expedientes_clientes = Expediente.objects.filter(
+        tipo__in=[Expediente.Tipo.CLIENTE, Expediente.Tipo.AMBOS]
+    )
+
+    contexto_base = {
+        "expedientes": expedientes_clientes,
+        "estatuses": FacturaCliente.Estatus.choices,
+        "monedas": FacturaCliente.Moneda.choices,
+    }
+
+    if request.method == "POST":
+
+        expediente_id = request.POST.get("expediente")
+
+        if not expediente_id:
+            messages.error(request, "Debe seleccionar un cliente.")
+            return render(request, "finanzas/cxc/crear.html", contexto_base)
+
+        try:
+            expediente = get_object_or_404(Expediente, pk=expediente_id)
+        except (ValueError, ValidationError):
+            messages.error(request, "El cliente seleccionado no es válido.")
+            return render(request, "finanzas/cxc/crear.html", contexto_base)
+
+        if expediente.tipo not in (Expediente.Tipo.CLIENTE, Expediente.Tipo.AMBOS):
+            messages.error(
+                request,
+                f"{expediente.nombre_completo} está registrado como Proveedor, "
+                "no se le pueden generar facturas de Cuentas por Cobrar."
+            )
+            return render(request, "finanzas/cxc/crear.html", contexto_base)
+
+        # --- Número de factura: requerido, único, y normalizado a mayúsculas ---
+        factura_num = (request.POST.get("factura") or "").strip().upper()
+        if not factura_num:
+            messages.error(request, "Debe especificar el número de factura.")
+            return render(request, "finanzas/cxc/crear.html", contexto_base)
+
+        if FacturaCliente.objects.filter(factura=factura_num).exists():
+            messages.error(
+                request,
+                f"Ya existe una factura registrada con el número {factura_num}."
+            )
+            return render(request, "finanzas/cxc/crear.html", contexto_base)
+
+        # --- Moneda y tipo de cambio ---
+        moneda = request.POST.get("moneda", FacturaCliente.Moneda.MXN)
+        if moneda not in FacturaCliente.Moneda.values:
+            messages.error(request, "Moneda no válida.")
+            return render(request, "finanzas/cxc/crear.html", contexto_base)
+
+        if moneda == FacturaCliente.Moneda.MXN:
+            # En pesos el tipo de cambio siempre es 1, sin importar lo que
+            # mande el formulario (el campo se deshabilita en el HTML cuando
+            # la moneda es MXN, pero igual lo forzamos aquí por seguridad).
+            tipo_cambio = Decimal("1.0000")
+        else:
+            try:
+                tipo_cambio = Decimal(request.POST.get("tipo_cambio") or "0")
+            except InvalidOperation:
+                messages.error(request, "El tipo de cambio debe ser un número válido.")
+                return render(request, "finanzas/cxc/crear.html", contexto_base)
+
+            if tipo_cambio <= 0:
+                messages.error(
+                    request,
+                    "Debe especificar un tipo de cambio mayor a cero para moneda distinta a MXN."
+                )
+                return render(request, "finanzas/cxc/crear.html", contexto_base)
+
+        # --- Subtotal e IVA: el modelo los requiere (no tienen default) ---
+        # El total se calcula en el servidor a partir de subtotal + iva, en vez de
+        # confiar en un campo "total" que mande el navegador, para que siempre
+        # cuadre con la suma real.
+        try:
+            subtotal = Decimal(request.POST.get("subtotal") or "0")
+            iva = Decimal(request.POST.get("iva") or "0")
+        except InvalidOperation:
+            messages.error(request, "Subtotal e IVA deben ser números válidos.")
+            return render(request, "finanzas/cxc/crear.html", contexto_base)
+
+        if subtotal <= 0:
+            messages.error(request, "El subtotal debe ser mayor a cero.")
+            return render(request, "finanzas/cxc/crear.html", contexto_base)
+
+        if iva < 0:
+            messages.error(request, "El IVA no puede ser negativo.")
+            return render(request, "finanzas/cxc/crear.html", contexto_base)
+
+        total = subtotal + iva
+
+        # --- Validar fechas presentes y coherentes ---
+        fecha_factura = request.POST.get("fecha_factura")
+        fecha_vencimiento = request.POST.get("fecha_vencimiento")
+
+        if not fecha_factura or not fecha_vencimiento:
+            messages.error(request, "Debe especificar fecha de factura y de vencimiento.")
+            return render(request, "finanzas/cxc/crear.html", contexto_base)
+
+        if fecha_vencimiento < fecha_factura:
+            messages.error(
+                request,
+                "La fecha de vencimiento no puede ser anterior a la fecha de la factura."
+            )
+            return render(request, "finanzas/cxc/crear.html", contexto_base)
+
+        # --- Estatus: validado contra los choices reales, igual que moneda ---
+        estatus = request.POST.get("estatus", FacturaCliente.Estatus.PENDIENTE)
+        if estatus not in FacturaCliente.Estatus.values:
+            messages.error(request, "Estatus no válido.")
+            return render(request, "finanzas/cxc/crear.html", contexto_base)
+
+        dias_credito = _dias_credito_desde_post(request.POST)
+
+        # Mayúsculas en todos los campos de texto libre, EXCEPTO observaciones
+        # (ahí se respeta tal cual lo escribe el usuario, por legibilidad de notas largas).
+        orden_servicio = (request.POST.get("orden_servicio") or "").strip().upper()
+        observaciones = request.POST.get("observaciones", "")
+
+        FacturaCliente.objects.create(
+            expediente=expediente,
+            factura=factura_num,
+            orden_servicio=orden_servicio,
+            fecha_factura=fecha_factura,
+            fecha_vencimiento=fecha_vencimiento,
+            dias_credito=dias_credito,
+            moneda=moneda,
+            tipo_cambio=tipo_cambio,
+            subtotal=subtotal,
+            iva=iva,
+            total=total,
+            observaciones=observaciones,
+            estatus=estatus,
+        )
+
+        messages.success(request, "Factura creada correctamente.")
+
+        return redirect("facturas_lista")
+
+    return render(request, "finanzas/cxc/crear.html", contexto_base)
+
+
+# =====================================================
+# DETALLE DE FACTURA (CxC)
+# =====================================================
+
+@login_required
+@never_cache
+def factura_detalle(request, pk):
+
+    factura = get_object_or_404(
+        FacturaCliente.objects.select_related("expediente"),
+        pk=pk
+    )
+
+    pagos = factura.pagos.all()
+
+    total_pagado = factura.total_pagado
+    saldo = factura.saldo_pendiente
+
+    # Equivalente en MXN, solo relevante cuando la factura no está en pesos.
+    total_mxn = factura.total * factura.tipo_cambio if factura.moneda != FacturaCliente.Moneda.MXN else None
+
+    return render(
+        request,
+        "finanzas/cxc/detalle.html",
+        {
+            "factura": factura,
+            "pagos": pagos,
+            "total_pagado": total_pagado,
+            "saldo": saldo,
+            "total_mxn": total_mxn,
+        },
+    )
+
+
+# =====================================================
+# REGISTRAR PAGO (CxC)
+# =====================================================
+
+@login_required
+@never_cache
+def registrar_pago(request, pk):
+
+    factura = get_object_or_404(FacturaCliente, pk=pk)
+
+    # No tiene sentido registrar pagos sobre facturas ya cerradas.
+    if factura.estatus == FacturaCliente.Estatus.CANCELADA:
+        messages.error(request, "No se pueden registrar pagos a una factura cancelada.")
+        return redirect("factura_detalle", pk=pk)
+
+    if factura.estatus == FacturaCliente.Estatus.PAGADA:
+        messages.info(request, "Esta factura ya está completamente pagada.")
+        return redirect("factura_detalle", pk=pk)
+
+    contexto_base = {
+        "factura": factura,
+        "metodos": PagoCliente.MetodoPago.choices,
+    }
+
+    if request.method == "POST":
+
+        try:
+            monto = Decimal(request.POST.get("monto") or "0")
+        except InvalidOperation:
+            messages.error(request, "El monto debe ser un número válido.")
+            return render(request, "finanzas/cxc/registrar_pago.html", contexto_base)
+
+        if monto <= 0:
+            messages.error(request, "El monto debe ser mayor a cero.")
+            return render(request, "finanzas/cxc/registrar_pago.html", contexto_base)
+
+        saldo_actual = factura.saldo_pendiente
+        if monto > saldo_actual:
+            messages.error(
+                request,
+                f"El monto (${monto}) no puede exceder el saldo pendiente (${saldo_actual})."
+            )
+            return render(request, "finanzas/cxc/registrar_pago.html", contexto_base)
+
+        fecha_pago = request.POST.get("fecha_pago")
+        if not fecha_pago:
+            messages.error(request, "Debe especificar la fecha de pago.")
+            return render(request, "finanzas/cxc/registrar_pago.html", contexto_base)
+
+        fecha_deposito = request.POST.get("fecha_deposito") or None
+
+        # Mayúsculas en referencia (identificador), observaciones se respeta tal cual.
+        referencia = (request.POST.get("referencia") or "").strip().upper()
+        observaciones = request.POST.get("observaciones", "")
+
+        # PagoCliente.save() ya llama internamente a factura.actualizar_estatus(),
+        # así que no hace falta actualizar el estatus manualmente aquí.
+        PagoCliente.objects.create(
+            factura=factura,
+            fecha_pago=fecha_pago,
+            fecha_deposito=fecha_deposito,
+            monto=monto,
+            metodo_pago=request.POST.get("metodo_pago", PagoCliente.MetodoPago.TRANSFERENCIA),
+            referencia=referencia,
+            observaciones=observaciones,
+        )
+
+        messages.success(request, "Pago registrado correctamente.")
+
+        return redirect("factura_detalle", pk=pk)
+
+    return render(request, "finanzas/cxc/registrar_pago.html", contexto_base)
+
+
+# =====================================================
+# EDITAR FACTURA (CxC)
+# =====================================================
+
+@login_required
+@never_cache
+def factura_editar(request, pk):
+
+    factura = get_object_or_404(
+        FacturaCliente.objects.select_related("expediente"),
+        pk=pk
+    )
+
+    if factura.estatus == FacturaCliente.Estatus.CANCELADA:
+        messages.error(request, "No se puede editar una factura cancelada.")
+        return redirect("factura_detalle", pk=pk)
+
+    # Mismo criterio que en factura_crear: solo clientes o "ambos", nunca
+    # proveedores puros, para no permitir facturar CxC contra un proveedor.
+    expedientes_clientes = Expediente.objects.filter(
+        tipo__in=[Expediente.Tipo.CLIENTE, Expediente.Tipo.AMBOS]
+    )
+
+    contexto_base = {
+        "factura": factura,
+        "expedientes": expedientes_clientes,
+        "monedas": FacturaCliente.Moneda.choices,
+    }
+
+    if request.method == "POST":
+
+        expediente_id = request.POST.get("expediente")
+
+        if not expediente_id:
+            messages.error(request, "Debe seleccionar un cliente.")
+            return render(request, "finanzas/cxc/editar.html", contexto_base)
+
+        try:
+            expediente = get_object_or_404(Expediente, pk=expediente_id)
+        except (ValueError, ValidationError):
+            messages.error(request, "El cliente seleccionado no es válido.")
+            return render(request, "finanzas/cxc/editar.html", contexto_base)
+
+        if expediente.tipo not in (Expediente.Tipo.CLIENTE, Expediente.Tipo.AMBOS):
+            messages.error(
+                request,
+                f"{expediente.nombre_completo} está registrado como Proveedor, "
+                "no se le pueden generar facturas de Cuentas por Cobrar."
+            )
+            return render(request, "finanzas/cxc/editar.html", contexto_base)
+
+        # --- Número de factura: requerido, único (excluyendo esta misma factura) ---
+        factura_num = (request.POST.get("factura") or "").strip().upper()
+        if not factura_num:
+            messages.error(request, "Debe especificar el número de factura.")
+            return render(request, "finanzas/cxc/editar.html", contexto_base)
+
+        if FacturaCliente.objects.filter(factura=factura_num).exclude(pk=pk).exists():
+            messages.error(
+                request,
+                f"Ya existe otra factura registrada con el número {factura_num}."
+            )
+            return render(request, "finanzas/cxc/editar.html", contexto_base)
+
+        # --- Moneda y tipo de cambio ---
+        moneda = request.POST.get("moneda", FacturaCliente.Moneda.MXN)
+        if moneda not in FacturaCliente.Moneda.values:
+            messages.error(request, "Moneda no válida.")
+            return render(request, "finanzas/cxc/editar.html", contexto_base)
+
+        if moneda == FacturaCliente.Moneda.MXN:
+            tipo_cambio = Decimal("1.0000")
+        else:
+            try:
+                tipo_cambio = Decimal(request.POST.get("tipo_cambio") or "0")
+            except InvalidOperation:
+                messages.error(request, "El tipo de cambio debe ser un número válido.")
+                return render(request, "finanzas/cxc/editar.html", contexto_base)
+
+            if tipo_cambio <= 0:
+                messages.error(
+                    request,
+                    "Debe especificar un tipo de cambio mayor a cero para moneda distinta a MXN."
+                )
+                return render(request, "finanzas/cxc/editar.html", contexto_base)
+
+        # --- Subtotal e IVA ---
+        try:
+            subtotal = Decimal(request.POST.get("subtotal") or "0")
+            iva = Decimal(request.POST.get("iva") or "0")
+        except InvalidOperation:
+            messages.error(request, "Subtotal e IVA deben ser números válidos.")
+            return render(request, "finanzas/cxc/editar.html", contexto_base)
+
+        if subtotal <= 0:
+            messages.error(request, "El subtotal debe ser mayor a cero.")
+            return render(request, "finanzas/cxc/editar.html", contexto_base)
+
+        if iva < 0:
+            messages.error(request, "El IVA no puede ser negativo.")
+            return render(request, "finanzas/cxc/editar.html", contexto_base)
+
+        total = subtotal + iva
+
+        # No se puede bajar el total por debajo de lo que ya se cobró: dejaría
+        # un saldo negativo y rompería la lógica de actualizar_estatus().
+        total_pagado_actual = factura.total_pagado
+        if total < total_pagado_actual:
+            messages.error(
+                request,
+                f"El nuevo total (${total}) no puede ser menor a lo ya cobrado "
+                f"(${total_pagado_actual}). Considere registrar una nota de crédito "
+                f"en vez de reducir el total por debajo de lo cobrado."
+            )
+            return render(request, "finanzas/cxc/editar.html", contexto_base)
+
+        # --- Fechas ---
+        fecha_factura = request.POST.get("fecha_factura")
+        fecha_vencimiento = request.POST.get("fecha_vencimiento")
+
+        if not fecha_factura or not fecha_vencimiento:
+            messages.error(request, "Debe especificar fecha de factura y de vencimiento.")
+            return render(request, "finanzas/cxc/editar.html", contexto_base)
+
+        if fecha_vencimiento < fecha_factura:
+            messages.error(
+                request,
+                "La fecha de vencimiento no puede ser anterior a la fecha de la factura."
+            )
+            return render(request, "finanzas/cxc/editar.html", contexto_base)
+
+        dias_credito = _dias_credito_desde_post(request.POST)
+        orden_servicio = (request.POST.get("orden_servicio") or "").strip().upper()
+        observaciones = request.POST.get("observaciones", "")
+
+        factura.expediente = expediente
+        factura.factura = factura_num
+        factura.orden_servicio = orden_servicio
+        factura.fecha_factura = fecha_factura
+        factura.fecha_vencimiento = fecha_vencimiento
+        factura.dias_credito = dias_credito
+        factura.moneda = moneda
+        factura.tipo_cambio = tipo_cambio
+        factura.subtotal = subtotal
+        factura.iva = iva
+        factura.total = total
+        factura.observaciones = observaciones
+        factura.save()
+
+        # El estatus NO se captura en este formulario: se recalcula solo, con
+        # base en lo ya pagado contra el nuevo total (por si subtotal/iva cambiaron).
+        factura.actualizar_estatus()
+
+        messages.success(request, "Factura actualizada correctamente.")
+
+        return redirect("factura_detalle", pk=pk)
+
+    return render(request, "finanzas/cxc/editar.html", contexto_base)
+
+
+# =====================================================
+# CANCELAR FACTURA (CxC)
+# =====================================================
+
+@login_required
+@never_cache
+def factura_cancelar(request, pk):
+
+    factura = get_object_or_404(
+        FacturaCliente.objects.select_related("expediente"),
+        pk=pk
+    )
+
+    if factura.estatus == FacturaCliente.Estatus.CANCELADA:
+        messages.info(request, "Esta factura ya está cancelada.")
+        return redirect("factura_detalle", pk=pk)
+
+    # No se cancela una factura que ya tiene dinero cobrado: eso dejaría un
+    # pago sin factura activa asociada. Primero hay que resolver/eliminar
+    # esos pagos (punto pendiente aparte).
+    if factura.total_pagado > 0:
+        messages.error(
+            request,
+            "No se puede cancelar una factura que ya tiene pagos registrados "
+            f"(${factura.total_pagado}). Elimine o ajuste los pagos primero."
+        )
+        return redirect("factura_detalle", pk=pk)
+
+    if request.method == "POST":
+        factura.estatus = FacturaCliente.Estatus.CANCELADA
+        factura.save(update_fields=["estatus"])
+
+        messages.success(request, "Factura cancelada correctamente.")
+
+        return redirect("factura_detalle", pk=pk)
+
+    # GET: página de confirmación, mismo patrón que expediente_eliminar.
+    return render(
+        request,
+        "finanzas/cxc/cancelar.html",
+        {"factura": factura}
+    )
+
+
+# =====================================================
+# EDITAR PAGO (CxC)
+# =====================================================
+
+@login_required
+@never_cache
+def pago_editar(request, pk):
+
+    pago = get_object_or_404(
+        PagoCliente.objects.select_related("factura", "factura__expediente"),
+        pk=pk
+    )
+    factura = pago.factura
+
+    if factura.estatus == FacturaCliente.Estatus.CANCELADA:
+        messages.error(request, "No se pueden editar pagos de una factura cancelada.")
+        return redirect("factura_detalle", pk=factura.pk)
+
+    contexto_base = {
+        "pago": pago,
+        "factura": factura,
+        "metodos": PagoCliente.MetodoPago.choices,
+    }
+
+    if request.method == "POST":
+
+        try:
+            monto = Decimal(request.POST.get("monto") or "0")
+        except InvalidOperation:
+            messages.error(request, "El monto debe ser un número válido.")
+            return render(request, "finanzas/cxc/pago_editar.html", contexto_base)
+
+        if monto <= 0:
+            messages.error(request, "El monto debe ser mayor a cero.")
+            return render(request, "finanzas/cxc/pago_editar.html", contexto_base)
+
+        # El tope es el saldo pendiente ACTUAL más lo que este mismo pago ya
+        # está aportando (porque ese monto original hay que "liberarlo" antes
+        # de comparar, si no, el pago se compara contra un saldo que ya lo
+        # incluye descontado y nunca dejaría subirlo).
+        saldo_disponible = factura.saldo_pendiente + pago.monto
+        if monto > saldo_disponible:
+            messages.error(
+                request,
+                f"El monto (${monto}) no puede exceder el saldo disponible "
+                f"(${saldo_disponible})."
+            )
+            return render(request, "finanzas/cxc/pago_editar.html", contexto_base)
+
+        fecha_pago = request.POST.get("fecha_pago")
+        if not fecha_pago:
+            messages.error(request, "Debe especificar la fecha de pago.")
+            return render(request, "finanzas/cxc/pago_editar.html", contexto_base)
+
+        fecha_deposito = request.POST.get("fecha_deposito") or None
+        referencia = (request.POST.get("referencia") or "").strip().upper()
+        observaciones = request.POST.get("observaciones", "")
+
+        pago.monto = monto
+        pago.fecha_pago = fecha_pago
+        pago.fecha_deposito = fecha_deposito
+        pago.metodo_pago = request.POST.get("metodo_pago", pago.metodo_pago)
+        pago.referencia = referencia
+        pago.observaciones = observaciones
+
+        # PagoCliente.save() ya llama internamente a factura.actualizar_estatus().
+        pago.save()
+
+        messages.success(request, "Pago actualizado correctamente.")
+
+        return redirect("factura_detalle", pk=factura.pk)
+
+    return render(request, "finanzas/cxc/pago_editar.html", contexto_base)
+
+
+# =====================================================
+# ELIMINAR PAGO (CxC)
+# =====================================================
+
+@login_required
+@never_cache
+def pago_eliminar(request, pk):
+
+    pago = get_object_or_404(
+        PagoCliente.objects.select_related("factura", "factura__expediente"),
+        pk=pk
+    )
+    factura = pago.factura
+
+    if factura.estatus == FacturaCliente.Estatus.CANCELADA:
+        messages.error(request, "No se pueden eliminar pagos de una factura cancelada.")
+        return redirect("factura_detalle", pk=factura.pk)
+
+    if request.method == "POST":
+
+        pago.delete()
+
+        # A diferencia de crear/editar, delete() NO pasa por el save()
+        # personalizado de PagoCliente, así que aquí SÍ hay que recalcular
+        # el estatus de la factura a mano.
+        factura.actualizar_estatus()
+
+        messages.success(request, "Pago eliminado correctamente.")
+
+        return redirect("factura_detalle", pk=factura.pk)
+
+    return render(
+        request,
+        "finanzas/cxc/pago_eliminar.html",
+        {"pago": pago, "factura": factura}
     )

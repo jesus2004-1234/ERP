@@ -71,6 +71,8 @@
                     <th class="text-center">Fecha devolución</th>
                     <th>Entregado por</th>
                     <th class="text-center">Estatus</th>
+                    <th class="text-center" width="60">Asignación</th>
+                    <th class="text-center" width="60">Devolución</th>
                     <th class="text-center" width="120">Acciones</th>
                 </tr>
 
@@ -142,6 +144,38 @@
                     </td>
 
                     <td class="text-center">
+                        {% if asignacion.archivo_resguardo %}
+                            <a href="{{ asignacion.archivo_resguardo.url }}"
+                               target="_blank"
+                               rel="noopener"
+                               class="btn btn-sm btn-outline-primary"
+                               title="Ver acta de asignación">
+                                <i class="bi bi-file-earmark-text"></i>
+                            </a>
+                        {% else %}
+                            <span class="text-muted" title="Sin archivo adjunto">
+                                <i class="bi bi-file-earmark-x"></i>
+                            </span>
+                        {% endif %}
+                    </td>
+
+                    <td class="text-center">
+                        {% if asignacion.archivo_devolucion %}
+                            <a href="{{ asignacion.archivo_devolucion.url }}"
+                               target="_blank"
+                               rel="noopener"
+                               class="btn btn-sm btn-outline-primary"
+                               title="Ver acta de devolución">
+                                <i class="bi bi-file-earmark-text"></i>
+                            </a>
+                        {% else %}
+                            <span class="text-muted" title="Sin archivo adjunto">
+                                <i class="bi bi-file-earmark-x"></i>
+                            </span>
+                        {% endif %}
+                    </td>
+
+                    <td class="text-center">
 
                         <div class="btn-group btn-group-sm">
 
@@ -171,7 +205,7 @@
 
                 <tr>
 
-                    <td colspan="8" class="text-center text-muted py-4">
+                    <td colspan="10" class="text-center text-muted py-4">
 
                         <i class="bi bi-inbox fs-3"></i>
 

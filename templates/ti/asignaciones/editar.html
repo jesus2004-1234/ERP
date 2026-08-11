@@ -7,7 +7,7 @@
 {% block content %}
 <div class="card">
     <div class="card-body">
-        <form method="post">
+        <form method="post" enctype="multipart/form-data">
             {% csrf_token %}
             <div class="row">
                 <div class="col-md-6 mb-3">
@@ -48,6 +48,46 @@
                 <div class="col-md-6 mb-3"> 
                     <label class="form-label">Fecha de devolución</label>
                     <input type="date" name="fecha_devolucion" class="form-control" value="{{ asignacion.fecha_devolucion|date:'Y-m-d' }}">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Acta de Asignación</label>
+
+                    {% if asignacion.archivo_resguardo %}
+                        <div class="mb-2">
+                            <a href="{{ asignacion.archivo_resguardo.url }}" target="_blank" rel="noopener">
+                                <i class="bi bi-file-earmark-text"></i> Ver archivo actual
+                            </a>
+                            <div class="form-check mt-1">
+                                <input type="checkbox" name="eliminar_archivo_resguardo" id="eliminar_archivo_resguardo" class="form-check-input">
+                                <label for="eliminar_archivo_resguardo" class="form-check-label text-danger">
+                                    Eliminar archivo actual
+                                </label>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <input type="file" name="archivo_resguardo" class="form-control">
+                    <div class="form-text">Sube un archivo nuevo solo si quieres reemplazar el actual.</div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Acta de Devolución</label>
+
+                    {% if asignacion.archivo_devolucion %}
+                        <div class="mb-2">
+                            <a href="{{ asignacion.archivo_devolucion.url }}" target="_blank" rel="noopener">
+                                <i class="bi bi-file-earmark-text"></i> Ver archivo actual
+                            </a>
+                            <div class="form-check mt-1">
+                                <input type="checkbox" name="eliminar_archivo_devolucion" id="eliminar_archivo_devolucion" class="form-check-input">
+                                <label for="eliminar_archivo_devolucion" class="form-check-label text-danger">
+                                    Eliminar archivo actual
+                                </label>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <input type="file" name="archivo_devolucion" class="form-control">
+                    <div class="form-text">Sube un archivo nuevo solo si quieres reemplazar el actual.</div>
                 </div>
                 <div class="d-flex gap-2">
                     <button type="submit" class="btn btn-warning">

@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.db import models
 from django.utils import timezone
+from django.db import transaction
 
 
 class Expediente(models.Model):
@@ -159,12 +160,17 @@ class FacturaCliente(models.Model):
         PAGADA = "Pagada", "Pagada"
         CANCELADA = "Cancelada", "Cancelada"
 
+    class Moneda(models.TextChoices):
+       MXN = "MXN", "Peso Mexicano"
+       USD = "USD", "Dólar Americano"
+       EUR = "EUR", "Euro"
+
     expediente = models.ForeignKey(
         "Expediente", on_delete=models.PROTECT, related_name="facturas_cliente"
     )
     fecha_factura = models.DateField()
     factura = models.CharField(max_length=50, unique=True)
-    orden_compra = models.CharField(max_length=100, blank=True)
+    orden_servicio = models.CharField(max_length=100, blank=True)
     subtotal = models.DecimalField(max_digits=12, decimal_places=2)
     iva = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=12, decimal_places=2)
@@ -172,18 +178,21 @@ class FacturaCliente(models.Model):
     fecha_ingreso_cliente = models.DateField(blank=True, null=True)
     dias_credito = models.PositiveIntegerField(default=0)
     fecha_vencimiento = models.DateField()
-    estatus = models.CharField(
-        max_length=20, choices=Estatus.choices, default=Estatus.PENDIENTE
-    )
+    estatus = models.CharField(max_length=20, choices=Estatus.choices, default=Estatus.PENDIENTE)
     cfdi_complemento_pago = models.BooleanField(default=False)
     porcentaje_comision = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     procedencia = models.CharField(max_length=150, blank=True)
     observaciones = models.TextField(blank=True)
-    fecha_registro = models.DateTimeField(auto_now_add=False)
+    fecha_registro = models.DateTimeField(auto_now_add=True)
+
+    moneda = models.CharField(max_length=3, choices=Moneda.choices, default=Moneda.MXN)
+    tipo_cambio = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("1.00"))
 
     @property
     def monto_comision(self):
-        return self.total * self.porcentaje_comision / Decimal(100)
+        total = self.total or Decimal("0.00")
+        porcentaje = self.porcentaje_comision or Decimal("0.00")
+        return total * porcentaje / Decimal("100")
 
     @property
     def total_pagado(self):
@@ -191,13 +200,34 @@ class FacturaCliente(models.Model):
 
     @property
     def saldo_pendiente(self):
-        return self.total - self.total_pagado
+        total = self.total or Decimal("0.00")
+        return total - self.total_pagado
 
     @property
     def dias_vencimiento(self):
         if self.estatus == self.Estatus.PAGADA:
             return 0
-        return (timezone.now().date() - self.fecha_vencimiento).days
+        dias = (timezone.now().date() - self.fecha_vencimiento).days
+        return dias if dias > 0 else 0
+
+    @property
+    def vencida(self):
+        return (self.saldo_pendiente > 0 and timezone.now().date() > self.fecha_vencimiento)
+
+    def actualizar_estatus(self):
+        if self.estatus == self.Estatus.CANCELADA:
+            return
+        saldo = self.saldo_pendiente
+        if saldo <= 0:
+           nuevo = self.Estatus.PAGADA
+        elif saldo < self.total:
+           nuevo = self.Estatus.PARCIAL
+        else:
+            nuevo = self.Estatus.PENDIENTE
+        if nuevo != self.estatus:
+            self.estatus = nuevo
+            self.save(update_fields=["estatus"])
+
 
     def __str__(self):
         return f"{self.factura} - {self.expediente.nombre_completo}"
@@ -226,6 +256,7 @@ class PagoCliente(models.Model):
         max_length=20, choices=MetodoPago.choices, default=MetodoPago.TRANSFERENCIA
     )
     referencia = models.CharField(max_length=100, blank=True)
+    comprobante_pago = models.FileField(upload_to="finanzas/pagos/", blank=True, null=True)
     observaciones = models.TextField(blank=True)
     fecha_registro = models.DateTimeField(auto_now_add=True)
 
@@ -236,3 +267,8 @@ class PagoCliente(models.Model):
         ordering = ["fecha_pago"]  # noqa: RUF012
         verbose_name = "Pago Cliente"
         verbose_name_plural = "Pagos "
+
+    def save(self, *args, **kwargs):
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            self.factura.actualizar_estatus()

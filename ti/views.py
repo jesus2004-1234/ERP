@@ -243,12 +243,17 @@ def asignacion_crear(request):
     equipos   = Equipo.objects.filter(estatus='Activo')
     empleados = Empleado.objects.all()
     if request.method == 'POST':
+        # request.FILES.get(...) porque ambos archivos son opcionales: una
+        # asignación puede crearse sin acta adjunta todavía, y normalmente
+        # la de devolución se sube después, al editar.
         Asignacion.objects.create(
             equipo_id=request.POST['equipo'],
             empleado_id=request.POST['empleado'],
             fecha_devolucion=request.POST.get('fecha_devolucion') or None,
             estatus=request.POST['estatus'],
             entregado_por=request.POST.get('entregado_por', ''),
+            archivo_resguardo=request.FILES.get('archivo_resguardo'),
+            archivo_devolucion=request.FILES.get('archivo_devolucion'),
         )
         messages.success(request, 'Asignación creada correctamente.')
         return redirect('asignaciones_lista')
@@ -268,6 +273,24 @@ def asignacion_editar(request, pk):
         asignacion.fecha_devolucion = request.POST.get('fecha_devolucion') or None
         asignacion.entregado_por    = request.POST.get('entregado_por', '')
         asignacion.estatus = request.POST.get('estatus')
+
+        # Cada archivo es independiente: si no se sube uno nuevo, se conserva
+        # el que ya estaba; si se marca su checkbox de "eliminar", se borra
+        # sin necesidad de subir uno nuevo en su lugar.
+        nuevo_resguardo = request.FILES.get('archivo_resguardo')
+        if nuevo_resguardo:
+            asignacion.archivo_resguardo = nuevo_resguardo
+        elif request.POST.get('eliminar_archivo_resguardo'):
+            asignacion.archivo_resguardo.delete(save=False)
+            asignacion.archivo_resguardo = None
+
+        nueva_devolucion = request.FILES.get('archivo_devolucion')
+        if nueva_devolucion:
+            asignacion.archivo_devolucion = nueva_devolucion
+        elif request.POST.get('eliminar_archivo_devolucion'):
+            asignacion.archivo_devolucion.delete(save=False)
+            asignacion.archivo_devolucion = None
+
         asignacion.save()
         messages.success(request, 'Asignación actualizada correctamente.')
         return redirect('asignaciones_lista')

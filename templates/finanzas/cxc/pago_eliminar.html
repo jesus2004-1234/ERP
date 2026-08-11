@@ -1,0 +1,32 @@
+{% extends "finanzas/base_finanzas.html" %}
+{% load humanize %}
+
+{% block title %}Eliminar Pago - ERP FINANZAS{% endblock %}
+{% block page_title %}Eliminar Pago{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-exclamation-triangle fs-1 text-danger"></i>
+        <h5 class="card-title">
+            ¿Estás seguro de que deseas eliminar el pago de
+            ${{ pago.monto|floatformat:2|intcomma }}
+            del {{ pago.fecha_pago|date:"d/m/Y" }}
+            de la factura {{ factura.factura }}?
+        </h5>
+        <p class="card-text">
+            Esta acción no se puede deshacer. El estatus de la factura se
+            recalculará automáticamente después de eliminar este pago.
+        </p>
+        <form method="post" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">
+                <i class="bi bi-trash"></i> Sí, eliminar pago
+            </button>
+        </form>
+        <a href="{% url 'factura_detalle' factura.pk %}" class="btn btn-secondary">
+            <i class="bi bi-x-circle"></i> Cancelar
+        </a>
+    </div>
+</div>
+{% endblock %}
