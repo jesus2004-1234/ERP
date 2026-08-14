@@ -227,8 +227,21 @@ const textoCentralDona = {
 };
 
 // ====== Helper: arma tooltip con cantidad + porcentaje ======
+// FIX: en gráficas horizontales (indexAxis: 'y'), Chart.js invierte los ejes:
+// el valor real de la barra queda en context.parsed.x, no en .y (.y pasa a
+// ser el índice de categoría). Antes esta función siempre tomaba .y si
+// existía, así que en "Equipos por tipo" (barra horizontal) el tooltip
+// mostraba el índice de la barra en vez de la cantidad real.
 function tooltipConPorcentaje(context) {
-    const valor = context.parsed.y !== undefined ? context.parsed.y : context.parsed;
+    const esHorizontal = context.chart.options.indexAxis === 'y';
+    let valor;
+    if (esHorizontal) {
+        valor = context.parsed.x;
+    } else if (context.parsed.y !== undefined) {
+        valor = context.parsed.y;
+    } else {
+        valor = context.parsed;
+    }
     const total = context.dataset.data.reduce((a, b) => a + b, 0);
     const porcentaje = total > 0 ? ((valor / total) * 100).toFixed(1) : 0;
     return `${context.label}: ${valor} (${porcentaje}%)`;
