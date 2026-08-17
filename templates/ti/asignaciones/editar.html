@@ -50,7 +50,7 @@
                     <input type="date" name="fecha_devolucion" class="form-control" value="{{ asignacion.fecha_devolucion|date:'Y-m-d' }}">
                 </div>
                 <div class="col-md-6 mb-3">
-                    <label class="form-label">Acta de Asignación</label>
+                    <label class="form-label">Carta Responsiva de Asignación</label>
 
                     {% if asignacion.archivo_resguardo %}
                         <div class="mb-2">
@@ -70,7 +70,7 @@
                     <div class="form-text">Sube un archivo nuevo solo si quieres reemplazar el actual.</div>
                 </div>
                 <div class="col-md-6 mb-3">
-                    <label class="form-label">Acta de Devolución</label>
+                    <label class="form-label">Carta Responsiva de Devolución</label>
 
                     {% if asignacion.archivo_devolucion %}
                         <div class="mb-2">
