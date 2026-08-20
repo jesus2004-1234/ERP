@@ -1,0 +1,29 @@
+{% extends "finanzas/base_finanzas.html" %}
+
+{% block title %}Cancelar Factura - ERP FINANZAS{% endblock %}
+{% block page_title %}Cancelar Factura{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-exclamation-triangle fs-1 text-danger"></i>
+        <h5 class="card-title">
+            ¿Estás seguro de que deseas cancelar la factura
+            {{ factura.factura }} de {{ factura.expediente.nombre_completo }}?
+        </h5>
+        <p class="card-text">
+            Esta acción no se puede deshacer. La factura quedará marcada como
+            Cancelada y ya no podrá editarse ni recibir pagos.
+        </p>
+        <form method="post" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">
+                <i class="bi bi-x-circle"></i> Sí, cancelar factura
+            </button>
+        </form>
+        <a href="{% url 'factura_proveedor_detalle' factura.pk %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Regresar
+        </a>
+    </div>
+</div>
+{% endblock %}

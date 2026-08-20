@@ -1,0 +1,1776 @@
+{% extends 'finanzas/base_finanzas.html' %}
+{% load humanize %}
+
+
+{% block title %}
+Detalle Factura {{ factura.factura }}
+{% endblock %}
+
+
+
+{% block page_title %}
+Detalle de Factura
+{% endblock %}
+
+
+
+{% block content %}
+
+
+<div class="row g-3">
+
+
+
+<!-- ================================================= -->
+<!-- ENCABEZADO FACTURA -->
+<!-- ================================================= -->
+
+
+<div class="col-12">
+
+
+    <div class="card shadow-sm border-0">
+
+
+        <div class="card-body p-4">
+
+
+            <div class="row align-items-center">
+
+
+                <div class="col-md-8">
+
+
+                    <div class="d-flex align-items-center gap-3">
+
+
+                        <div>
+
+                            <i class="bi bi-receipt-cutoff fs-1 text-primary"></i>
+
+                        </div>
+
+
+
+                        <div>
+
+
+                            <h3 class="mb-1">
+
+                                Factura {{ factura.factura }}
+
+                                {% if factura.moneda != "MXN" %}
+                                    <span class="badge bg-light text-dark border fs-6 align-middle">{{ factura.moneda }}</span>
+                                {% endif %}
+
+                            </h3>
+
+
+
+                            <p class="mb-1 text-muted">
+
+
+                                <i class="bi bi-building"></i>
+
+                                {{ factura.expediente.nombre_completo }}
+
+
+                            </p>
+
+
+
+
+                            <small class="text-muted">
+
+
+                                RFC:
+
+                                {{ factura.expediente.rfc|default:"Sin RFC" }}
+
+
+                            </small>
+
+
+
+                        </div>
+
+
+                    </div>
+
+
+                </div>
+
+
+
+
+
+                <div class="col-md-4 text-md-end mt-3 mt-md-0">
+
+
+                    {% if factura.estatus == "Pagada" %}
+
+
+                        <span class="badge bg-success fs-6 px-3 py-2">
+
+
+                            <i class="bi bi-check-circle"></i>
+
+                            Pagada
+
+
+                        </span>
+
+
+
+                    {% elif factura.estatus == "Parcial" %}
+
+
+
+                        <span class="badge bg-info fs-6 px-3 py-2">
+
+
+                            <i class="bi bi-hourglass-split"></i>
+
+                            Pago Parcial
+
+
+                        </span>
+
+
+
+                    {% elif factura.estatus == "Cancelada" %}
+
+
+
+                        <span class="badge bg-secondary fs-6 px-3 py-2">
+
+
+                            <i class="bi bi-x-circle"></i>
+
+                            Cancelada
+
+
+                        </span>
+
+
+
+                    {% else %}
+
+
+
+                        <span class="badge bg-warning text-dark fs-6 px-3 py-2">
+
+
+                            <i class="bi bi-clock"></i>
+
+                            Pendiente
+
+
+                        </span>
+
+
+
+                    {% endif %}
+
+
+
+                </div>
+
+
+            </div>
+
+
+        </div>
+
+
+    </div>
+
+
+</div>
+
+
+
+
+
+
+
+<!-- ================================================= -->
+<!-- BOTONES DE ACCIÓN -->
+<!-- ================================================= -->
+
+
+<div class="col-12">
+
+
+    <div class="d-flex justify-content-end gap-2">
+
+
+        <a href="{% url 'facturas_proveedor_lista'%}"
+           class="btn btn-outline-secondary">
+
+
+            <i class="bi bi-arrow-left"></i>
+
+            Volver
+
+
+        </a>
+
+
+
+
+
+        {% if factura.estatus != "Cancelada" %}
+        <a href="{% url 'factura_proveedor_editar' factura.pk%}"
+           class="btn btn-warning">
+
+
+            <i class="bi bi-pencil"></i>
+
+            Editar
+
+
+        </a>
+        {% endif %}
+
+
+
+
+
+        {% if factura.estatus != "Cancelada" and total_pagado == 0 %}
+        <a href="{% url 'factura_proveedor_cancelar' factura.pk %}"
+           class="btn btn-outline-danger">
+
+            <i class="bi bi-x-circle"></i>
+
+            Cancelar Factura
+
+        </a>
+        {% endif %}
+
+
+        {% if factura.estatus != "Cancelada" and factura.estatus != "Pagada" %}
+        <a href="{% url 'registrar_proveedor_pago' factura.pk%}"
+           class="btn btn-success">
+
+
+            <i class="bi bi-cash-stack"></i>
+
+            Registrar Pago
+
+
+        </a>
+        {% endif %}
+
+
+
+    </div>
+
+
+</div>
+
+
+
+
+
+
+
+<!-- ================================================= -->
+<!-- INDICADORES FINANCIEROS -->
+<!-- ================================================= -->
+
+
+<div class="col-md-4">
+
+
+    <div class="card shadow-sm border-start border-primary border-4 h-100">
+
+
+        <div class="card-body">
+
+
+            <small class="text-muted">
+
+                Total Factura {% if factura.moneda != "MXN" %}({{ factura.moneda }}){% endif %}
+
+            </small>
+
+
+            <h2 class="text-primary mb-0">
+
+
+                ${{ factura.total|floatformat:2|intcomma }}
+
+
+            </h2>
+
+            {% if factura.moneda != "MXN" %}
+                <small class="text-muted">≈ ${{ total_mxn|floatformat:2|intcomma }} MXN</small>
+            {% endif %}
+
+
+
+        </div>
+
+
+    </div>
+
+
+</div>
+
+
+
+
+
+
+
+<div class="col-md-4">
+
+
+    <div class="card shadow-sm border-start border-success border-4 h-100">
+
+
+        <div class="card-body">
+
+
+            <small class="text-muted">
+
+                Total Pagado
+
+            </small>
+
+
+            <h2 class="text-success mb-0">
+
+
+                ${{ total_pagado|floatformat:2|intcomma }}
+
+
+            </h2>
+
+
+
+        </div>
+
+
+    </div>
+
+
+</div>
+
+
+
+
+
+
+
+<div class="col-md-4">
+
+
+    <div class="card shadow-sm border-start border-danger border-4 h-100">
+
+
+        <div class="card-body">
+
+
+            <small class="text-muted">
+
+                Saldo Pendiente
+
+            </small>
+
+
+            <h2 class="text-danger mb-0">
+
+
+                ${{ saldo|floatformat:2|intcomma }}
+
+
+            </h2>
+
+
+
+        </div>
+
+
+    </div>
+
+
+</div>
+
+<!-- ================================================= -->
+<!-- INFORMACIÓN PROVEEDOR Y FACTURA -->
+<!-- ================================================= -->
+
+
+<div class="col-lg-6">
+
+
+    <div class="card shadow-sm border-0 h-100">
+
+
+        <div class="card-header bg-light">
+
+
+            <h6 class="mb-0">
+
+                <i class="bi bi-person-vcard"></i>
+
+                Información del Proveedor
+
+            </h6>
+
+
+        </div>
+
+
+
+
+        <div class="card-body">
+
+
+            <div class="mb-3">
+
+
+                <small class="text-muted">
+
+                    Proveedor
+
+                </small>
+
+
+                <h6 class="mb-0">
+
+                    {{ factura.expediente.nombre_completo }}
+
+                </h6>
+
+
+            </div>
+
+
+
+
+            <div class="row">
+
+
+                <div class="col-md-6 mb-3">
+
+
+                    <small class="text-muted">
+
+                        RFC
+
+                    </small>
+
+
+                    <p class="mb-0">
+
+                        {{ factura.expediente.rfc|default:"Sin RFC" }}
+
+                    </p>
+
+
+                </div>
+
+
+
+                <div class="col-md-6 mb-3">
+
+
+                    <small class="text-muted">
+
+                        Teléfono
+
+                    </small>
+
+
+                    <p class="mb-0">
+
+                        {{ factura.expediente.contacto_telefono|default:"-" }}
+
+                    </p>
+
+
+                </div>
+
+
+
+            </div>
+
+
+
+
+            <div class="mb-3">
+
+
+                <small class="text-muted">
+
+                    Contacto
+
+                </small>
+
+
+                <p class="mb-0">
+
+                    {{ factura.expediente.contacto_nombre|default:"-" }}
+
+                </p>
+
+
+            </div>
+
+
+
+
+            <div class="mb-3">
+
+
+                <small class="text-muted">
+
+                    Correo
+
+                </small>
+
+
+                <p class="mb-0">
+
+                    {{ factura.expediente.contacto_email|default:"-" }}
+
+                </p>
+
+
+            </div>
+
+
+
+
+            {% if factura.expediente.correo_pagos %}
+            <div class="mb-0">
+
+
+                <small class="text-muted">
+
+                    Correo para Envío de Pagos
+
+                </small>
+
+
+                <p class="mb-0">
+
+                    {{ factura.expediente.correo_pagos }}
+
+                </p>
+
+
+            </div>
+            {% endif %}
+
+
+        </div>
+
+
+    </div>
+
+
+</div>
+
+
+
+
+
+
+
+
+
+<!-- ================================================= -->
+<!-- INFORMACIÓN FACTURA -->
+<!-- ================================================= -->
+
+
+<div class="col-lg-6">
+
+
+    <div class="card shadow-sm border-0 h-100">
+
+
+        <div class="card-header bg-light">
+
+
+            <h6 class="mb-0">
+
+
+                <i class="bi bi-file-earmark-text"></i>
+
+
+                Información Factura
+
+
+            </h6>
+
+
+        </div>
+
+
+
+
+
+        <div class="card-body">
+
+
+
+            <div class="row">
+
+
+
+                <div class="col-md-6 mb-3">
+
+
+                    <small class="text-muted">
+
+                        Número Factura
+
+                    </small>
+
+
+                    <p class="mb-0 fw-bold">
+
+                        {{ factura.factura }}
+
+                    </p>
+
+
+                </div>
+
+
+
+
+
+                <div class="col-md-6 mb-3">
+
+
+                    <small class="text-muted">
+
+                        Orden de Compra
+
+                    </small>
+
+
+                    <p class="mb-0">
+
+                        {{ factura.orden_compra|default:"-" }}
+
+                    </p>
+
+
+                </div>
+
+
+
+
+
+                <div class="col-md-6 mb-3">
+
+
+                    <small class="text-muted">
+
+                        Fecha Factura
+
+                    </small>
+
+
+                    <p class="mb-0">
+
+                        {{ factura.fecha_factura|date:"d/m/Y" }}
+
+                    </p>
+
+
+                </div>
+
+
+
+
+
+                <div class="col-md-6 mb-3">
+
+
+                    <small class="text-muted">
+
+                        Fecha Vencimiento
+
+                    </small>
+
+
+                    <p class="mb-0">
+
+                        {{ factura.fecha_vencimiento|date:"d/m/Y" }}
+
+                    </p>
+
+
+                </div>
+
+
+
+            </div>
+
+
+
+        </div>
+
+
+    </div>
+
+
+</div>
+
+
+
+
+
+
+
+
+
+<!-- ================================================= -->
+<!-- RESUMEN FINANCIERO -->
+<!-- ================================================= -->
+
+
+<div class="col-lg-6">
+
+
+    <div class="card shadow-sm border-0 h-100">
+
+
+        <div class="card-header bg-light">
+
+
+            <h6 class="mb-0">
+
+
+                <i class="bi bi-calculator"></i>
+
+
+                Resumen Financiero
+
+
+            </h6>
+
+
+        </div>
+
+
+
+
+
+        <div class="card-body">
+
+
+
+            <div class="d-flex justify-content-between mb-3">
+
+
+                <span>
+
+                    Subtotal
+
+                </span>
+
+
+                <strong>
+
+                    ${{ factura.subtotal|floatformat:2|intcomma }}
+
+                </strong>
+
+
+            </div>
+
+
+
+
+
+            <div class="d-flex justify-content-between mb-3">
+
+
+                <span>
+
+                    IVA
+
+                </span>
+
+
+                <strong>
+
+                    ${{ factura.iva|floatformat:2|intcomma }}
+
+                </strong>
+
+
+            </div>
+
+
+
+
+
+            <hr>
+
+
+
+
+
+            <div class="d-flex justify-content-between">
+
+
+                <h5>
+
+                    Total
+
+                </h5>
+
+
+                <h5 class="text-primary">
+
+
+                    ${{ factura.total|floatformat:2|intcomma }}
+
+
+                </h5>
+
+
+            </div>
+
+
+
+
+
+        </div>
+
+
+    </div>
+
+
+</div>
+
+
+
+
+
+
+
+
+
+<!-- ================================================= -->
+<!-- COMISIÓN -->
+<!-- ================================================= -->
+
+
+<div class="col-lg-6">
+
+
+    <div class="card shadow-sm border-0 h-100">
+
+
+        <div class="card-header bg-light">
+
+
+            <h6 class="mb-0">
+
+
+                <i class="bi bi-percent"></i>
+
+
+                Comisión
+
+
+            </h6>
+
+
+        </div>
+
+
+
+
+
+        <div class="card-body">
+
+
+
+            <div class="row">
+
+
+                <div class="col-md-6">
+
+
+                    <small class="text-muted">
+
+                        Porcentaje
+
+                    </small>
+
+
+                    <h5>
+
+
+                        {{ factura.porcentaje_comision|floatformat:2 }}%
+
+
+                    </h5>
+
+
+                </div>
+
+
+
+
+
+                <div class="col-md-6">
+
+
+                    <small class="text-muted">
+
+                        Monto Comisión
+
+                    </small>
+
+
+                    <h5 class="text-success">
+
+
+                        ${{ factura.monto_comision|floatformat:2|intcomma }}
+
+
+                    </h5>
+
+
+                </div>
+
+
+            </div>
+
+
+        </div>
+
+
+    </div>
+
+
+</div>
+
+
+
+
+
+
+
+
+
+<!-- ================================================= -->
+<!-- CRÉDITO Y PAGO -->
+<!-- ================================================= -->
+
+
+<div class="col-12">
+
+
+    <div class="card shadow-sm border-0">
+
+
+        <div class="card-header bg-light">
+
+
+            <h6 class="mb-0">
+
+
+                <i class="bi bi-calendar-check"></i>
+
+
+                Condiciones de Pago
+
+
+            </h6>
+
+
+        </div>
+
+
+
+
+
+        <div class="card-body">
+
+
+            <div class="row text-center">
+
+
+
+                <div class="col-md-3">
+
+
+                    <small class="text-muted">
+
+                        Días Crédito
+
+                    </small>
+
+
+                    <h5>
+
+                        {{ factura.dias_credito }}
+
+                    </h5>
+
+
+                </div>
+
+
+
+
+
+                <div class="col-md-3">
+
+
+                    <small class="text-muted">
+
+                        Fecha Vencimiento
+
+                    </small>
+
+
+                    <h5>
+
+                        {{ factura.fecha_vencimiento|date:"d/m/Y" }}
+
+                    </h5>
+
+
+                </div>
+
+
+
+
+
+                <div class="col-md-3">
+
+
+                    <small class="text-muted">
+
+                        Estado
+
+                    </small>
+
+
+
+                    {% if factura.vencida %}
+
+
+                    <h5 class="text-danger">
+
+                        Vencida
+
+                    </h5>
+
+
+
+                    {% else %}
+
+
+
+                    <h5 class="text-success">
+
+                        Vigente
+
+                    </h5>
+
+
+
+                    {% endif %}
+
+
+                </div>
+
+
+
+
+
+                <div class="col-md-3">
+
+
+                    <small class="text-muted">
+
+                        Días Atraso
+
+                    </small>
+
+
+                    <h5>
+
+
+                        {{ factura.dias_vencimiento }}
+
+
+                    </h5>
+
+
+                </div>
+
+
+
+            </div>
+
+
+        </div>
+
+
+    </div>
+
+
+</div>
+
+<!-- ================================================= -->
+<!-- ESTADO DE CUENTA -->
+<!-- ================================================= -->
+
+
+<div class="col-12">
+
+
+    <div class="card shadow-sm border-0">
+
+
+        <div class="card-header bg-light">
+
+
+            <h6 class="mb-0">
+
+
+                <i class="bi bi-wallet2"></i>
+
+
+                Estado de Cuenta
+
+
+            </h6>
+
+
+        </div>
+
+
+
+
+
+        <div class="card-body">
+
+
+            <div class="row text-center">
+
+
+
+                <div class="col-md-4 border-end">
+
+
+                    <small class="text-muted">
+
+                        Monto Original
+
+                    </small>
+
+
+                    <h5 class="mt-2">
+
+
+                        ${{ factura.total|floatformat:2|intcomma }}
+
+
+                    </h5>
+
+
+                </div>
+
+
+
+
+
+                <div class="col-md-4 border-end">
+
+
+                    <small class="text-muted">
+
+                        Pagos Realizados
+
+                    </small>
+
+
+                    <h5 class="mt-2 text-success">
+
+
+                        ${{ total_pagado|floatformat:2|intcomma }}
+
+
+                    </h5>
+
+
+                </div>
+
+
+
+
+
+                <div class="col-md-4">
+
+
+                    <small class="text-muted">
+
+                        Saldo Actual
+
+                    </small>
+
+
+                    <h5 class="mt-2 text-danger">
+
+
+                        ${{ saldo|floatformat:2|intcomma }}
+
+
+                    </h5>
+
+
+                </div>
+
+
+
+
+            </div>
+
+
+        </div>
+
+
+    </div>
+
+
+</div>
+
+
+
+
+
+
+
+
+<!-- ================================================= -->
+<!-- PAGOS REGISTRADOS -->
+<!-- ================================================= -->
+
+
+<div class="col-12">
+
+
+    <div class="card shadow-sm border-0">
+
+
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+
+
+            <h6 class="mb-0">
+
+
+                <i class="bi bi-cash-stack"></i>
+
+
+                Pagos Registrados
+
+
+            </h6>
+
+
+
+
+            {% if factura.estatus != "Pagada" and factura.estatus != "Cancelada" %}
+            <a href="{% url 'registrar_proveedor_pago' factura.pk%}"
+               class="btn btn-success btn-sm">
+
+
+                <i class="bi bi-plus-circle"></i>
+
+
+                Nuevo Pago
+
+
+            </a>
+            {% endif %}
+
+
+
+        </div>
+
+
+
+
+
+
+
+        <div class="card-body p-0">
+
+
+
+            <div class="table-responsive">
+
+
+                <table class="table table-hover align-middle mb-0">
+
+
+
+                    <thead class="table-light">
+
+
+                        <tr>
+
+
+                            <th>
+
+                                Fecha
+
+                            </th>
+
+
+
+                            <th>
+
+                                Método
+
+                            </th>
+
+
+
+                            <th>
+
+                                Referencia
+
+                            </th>
+
+
+
+                            <th class="text-end">
+
+                                Monto
+
+                            </th>
+
+
+
+                            <th>
+
+                                Observaciones
+
+                            </th>
+
+
+                            <th class="text-center">
+
+                                Acciones
+
+                            </th>
+
+
+                        </tr>
+
+
+                    </thead>
+
+
+
+
+
+
+
+                    <tbody>
+
+
+
+                    {% for pago in pagos %}
+
+
+
+                        <tr>
+
+
+
+                            <td>
+
+
+                                {{ pago.fecha_pago|date:"d/m/Y" }}
+
+
+                            </td>
+
+
+
+
+
+                            <td>
+
+
+                                {{ pago.get_metodo_pago_display }}
+
+
+                            </td>
+
+
+
+
+
+                            <td>
+
+
+                                {{ pago.referencia|default:"-" }}
+
+
+                            </td>
+
+
+
+
+
+                            <td class="text-end fw-bold text-success">
+
+
+                                ${{ pago.monto|floatformat:2|intcomma }}
+
+
+                            </td>
+
+
+
+
+
+                            <td>
+
+
+                                {{ pago.observaciones|default:"-" }}
+
+
+                            </td>
+
+
+                            <td class="text-center">
+
+                                <div class="btn-group btn-group-sm">
+
+                                    <a href="{% url 'pago_proveedor_editar' pago.pk %}"
+                                       class="btn btn-outline-warning"
+                                       title="Editar pago">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+
+                                    <a href="{% url 'pago_proveedor_eliminar' pago.pk %}"
+                                       class="btn btn-outline-danger"
+                                       title="Eliminar pago">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+
+                                </div>
+
+                            </td>
+
+
+
+
+                        </tr>
+
+
+
+
+                    {% empty %}
+
+
+
+                        <tr>
+
+
+                            <td colspan="6"
+                                class="text-center py-4 text-muted">
+
+
+                                <i class="bi bi-info-circle fs-4"></i>
+
+
+                                <br>
+
+
+                                No existen pagos registrados.
+
+
+
+                            </td>
+
+
+                        </tr>
+
+
+
+
+                    {% endfor %}
+
+
+
+                    </tbody>
+
+
+                </table>
+
+
+            </div>
+
+
+        </div>
+
+
+    </div>
+
+
+</div>
+
+
+
+
+
+
+
+
+<!-- ================================================= -->
+<!-- OBSERVACIONES -->
+<!-- ================================================= -->
+
+
+<div class="col-lg-6">
+
+
+    <div class="card shadow-sm border-0 h-100">
+
+
+        <div class="card-header bg-light">
+
+
+            <h6 class="mb-0">
+
+
+                <i class="bi bi-chat-left-text"></i>
+
+
+                Observaciones
+
+
+            </h6>
+
+
+        </div>
+
+
+
+
+
+        <div class="card-body">
+
+
+            {% if factura.observaciones %}
+
+
+                {{ factura.observaciones|linebreaksbr }}
+
+
+
+            {% else %}
+
+
+
+                <span class="text-muted">
+
+
+                    Sin observaciones registradas.
+
+
+                </span>
+
+
+
+            {% endif %}
+
+
+
+        </div>
+
+
+    </div>
+
+
+</div>
+
+
+
+
+
+
+
+
+<!-- ================================================= -->
+<!-- INFORMACIÓN FISCAL -->
+<!-- ================================================= -->
+
+
+<div class="col-lg-6">
+
+
+    <div class="card shadow-sm border-0 h-100">
+
+
+        <div class="card-header bg-light">
+
+
+            <h6 class="mb-0">
+
+
+                <i class="bi bi-file-earmark-check"></i>
+
+
+                Información Fiscal
+
+
+            </h6>
+
+
+        </div>
+
+
+
+
+
+        <div class="card-body">
+
+
+            <div class="row">
+
+
+
+                <div class="col-md-6 mb-3">
+
+
+                    <small class="text-muted">
+
+                        Moneda
+
+                    </small>
+
+
+                    <p class="fw-bold mb-0">
+
+
+                        {{ factura.get_moneda_display }}
+
+
+                    </p>
+
+
+                </div>
+
+
+
+
+
+                <div class="col-md-6 mb-3">
+
+
+                    <small class="text-muted">
+
+                        Tipo Cambio
+
+                    </small>
+
+
+                    <p class="fw-bold mb-0">
+
+
+                        {{ factura.tipo_cambio|floatformat:2 }}
+
+
+                    </p>
+
+
+                </div>
+
+
+
+
+
+                <div class="col-12">
+
+
+                    <small class="text-muted">
+
+                        Complemento de Pago CFDI
+
+                    </small>
+
+
+
+                    <p class="mb-0">
+
+
+                        {% if factura.cfdi_complemento_pago %}
+
+
+                            <span class="badge bg-success">
+
+
+                                Registrado
+
+
+                            </span>
+
+
+
+                        {% else %}
+
+
+
+                            <span class="badge bg-secondary">
+
+
+                                Pendiente
+
+
+                            </span>
+
+
+
+                        {% endif %}
+
+
+                    </p>
+
+
+                </div>
+
+
+
+            </div>
+
+
+        </div>
+
+
+    </div>
+
+
+</div>
+
+
+
+
+
+</div>
+
+
+{% endblock %}

@@ -1,0 +1,299 @@
+{% extends 'finanzas/base_finanzas.html' %}
+{% load humanize %}
+
+{% block title %}Cuentas por Pagar{% endblock %}
+{% block page_title %}Cuentas por Pagar{% endblock %}
+
+{% block content %}
+
+<!-- Indicadores -->
+<div class="row mb-4">
+
+    <div class="col-md-3">
+        <div class="card shadow-sm border-start border-primary border-4">
+            <div class="card-body">
+                <small class="text-muted">Total Facturado (MXN)</small>
+                <h3 class="fw-bold text-primary">
+                    ${{ total_facturas|floatformat:2|intcomma }}
+                </h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card shadow-sm border-start border-success border-4">
+            <div class="card-body">
+                <small class="text-muted">Total Pagado (MXN)</small>
+                <h3 class="fw-bold text-success">
+                    ${{ total_pagado|floatformat:2|intcomma }}
+                </h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card shadow-sm border-start border-warning border-4">
+            <div class="card-body">
+                <small class="text-muted">Saldo Pendiente (MXN)</small>
+                <h3 class="fw-bold text-warning">
+                    ${{ total_pendiente|floatformat:2|intcomma }}
+                </h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card shadow-sm border-start border-danger border-4">
+            <div class="card-body">
+                <small class="text-muted">Facturas Vencidas</small>
+                <h3 class="fw-bold text-danger">
+                    {{ facturas_vencidas|default:"0" }}
+                </h3>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div class="d-flex justify-content-end mb-3">
+    <a href="{% url 'factura_proveedor_crear' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i>
+        Nueva Factura
+    </a>
+</div>
+
+<!-- Tabla -->
+<div class="card shadow-sm">
+
+    <div class="card-header">
+
+        <form method="get" class="row g-2 align-items-center">
+
+            <div class="col-lg-4">
+                <input
+                    type="text"
+                    name="buscar"
+                    class="form-control"
+                    placeholder="Buscar por factura o proveedor"
+                    value="{{ buscar }}">
+            </div>
+
+            <div class="col-lg-3">
+                <select name="estatus" class="form-select">
+                    <option value="">Todos los estatus</option>
+                    {% for valor,texto in estatus_choices %}
+                        <option value="{{ valor }}" {% if valor == estatus_actual %}selected{% endif %}>
+                            {{ texto }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-lg-3">
+                <select name="vencimiento" class="form-select">
+                    <option value="">Todos los vencimientos</option>
+                    <option value="vencidas" {% if vencimiento_actual == "vencidas" %}selected{% endif %}>
+                        Vencidas
+                    </option>
+                    <option value="por_vencer" {% if vencimiento_actual == "por_vencer" %}selected{% endif %}>
+                        Por vencer
+                    </option>
+                </select>
+            </div>
+
+            <div class="col-lg-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-grow-1">
+                    <i class="bi bi-search"></i>
+                    Buscar
+                </button>
+
+                <a href="{% url 'facturas_proveedor_lista' %}"
+                   class="btn btn-secondary"
+                   title="Limpiar filtros">
+                    <i class="bi bi-x"></i>
+                </a>
+            </div>
+
+        </form>
+
+    </div>
+
+    <div class="card-body p-0">
+
+        <div class="table-responsive">
+
+            <table class="table table-hover align-middle mb-0">
+
+                <thead class="table-dark">
+
+                    <tr>
+                        <th>Factura</th>
+                        <th>Proveedor</th>
+                        <th>Fecha</th>
+                        <th>Vence</th>
+                        <th class="text-end">Total</th>
+                        <th class="text-end">Pagado</th>
+                        <th class="text-end">Saldo</th>
+                        <th>Estatus</th>
+                        <th>Antigüedad</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                {% for factura in facturas %}
+
+                    <tr>
+
+                        <td>
+                            <strong>{{ factura.factura }}</strong>
+                        </td>
+
+                        <td>
+                            {{ factura.expediente.nombre_completo }}
+                        </td>
+
+                        <td>
+                            {{ factura.fecha_factura|date:"d/m/Y" }}
+                        </td>
+
+                        <td>
+                            {{ factura.fecha_vencimiento|date:"d/m/Y" }}
+                        </td>
+
+                        <td class="text-end">
+                            ${{ factura.total|floatformat:2|intcomma }}
+                            {% if factura.moneda != "MXN" %}
+                                <span class="badge bg-light text-dark border">{{ factura.moneda }}</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="text-end text-success">
+                            ${{ factura.total_pagado|floatformat:2|intcomma }}
+                            {% if factura.moneda != "MXN" %}
+                                <span class="badge bg-light text-dark border">{{ factura.moneda }}</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="text-end">
+
+                            {% if factura.saldo_pendiente > 0 %}
+                                <strong class="text-danger">
+                                    ${{ factura.saldo_pendiente|floatformat:2|intcomma }}
+                                </strong>
+                                {% if factura.moneda != "MXN" %}
+                                    <span class="badge bg-light text-dark border">{{ factura.moneda }}</span>
+                                {% endif %}
+                            {% else %}
+                                <strong class="text-success">$0.00</strong>
+                            {% endif %}
+
+                        </td>
+
+                        <td>
+
+                            {% if factura.estatus == "Pagada" %}
+                                <span class="badge bg-success">Pagada</span>
+                            {% elif factura.estatus == "Cancelada" %}
+                                <span class="badge bg-secondary">Cancelada</span>
+                            {% elif factura.estatus == "Parcial" %}
+                                <span class="badge bg-info">Parcial</span>
+                            {% elif factura.vencida %}
+                                <span class="badge bg-danger">Pendiente</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Pendiente</span>
+                            {% endif %}
+
+                        </td>
+
+                        <td>
+
+                            {% if factura.vencida %}
+                                <span class="text-danger fw-bold">{{ factura.dias_vencimiento }} días</span>
+                            {% else %}
+                                <span class="text-success">Vigente</span>
+                            {% endif %}
+
+                        </td>
+
+                        <td class="text-center">
+
+                            <div class="btn-group">
+
+                                <a href="{% url 'factura_proveedor_detalle' factura.pk %}"
+                                   class="btn btn-sm btn-outline-primary"
+                                   title="Ver detalle">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+
+                            </div>
+
+                        </td>
+
+                    </tr>
+
+                {% empty %}
+
+                    <tr>
+                        <td colspan="10" class="text-center py-4">
+                            No existen facturas de proveedores registradas.
+                        </td>
+                    </tr>
+
+                {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+    {% if facturas.has_other_pages %}
+    <div class="card-footer">
+        <nav aria-label="Paginación de facturas">
+            <ul class="pagination justify-content-center mb-0">
+
+                {% if facturas.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link"
+                           href="?page={{ facturas.previous_page_number }}&buscar={{ buscar|urlencode }}&estatus={{ estatus_actual }}&vencimiento={{ vencimiento_actual }}">
+                            Anterior
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">Anterior</span>
+                    </li>
+                {% endif %}
+
+                <li class="page-item disabled">
+                    <span class="page-link">
+                        Página {{ facturas.number }} de {{ facturas.paginator.num_pages }}
+                    </span>
+                </li>
+
+                {% if facturas.has_next %}
+                    <li class="page-item">
+                        <a class="page-link"
+                           href="?page={{ facturas.next_page_number }}&buscar={{ buscar|urlencode }}&estatus={{ estatus_actual }}&vencimiento={{ vencimiento_actual }}">
+                            Siguiente
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">Siguiente</span>
+                    </li>
+                {% endif %}
+
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+
+</div>
+
+{% endblock %}

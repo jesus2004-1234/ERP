@@ -32,10 +32,10 @@
     </div>
 
     <div class="col-md-3">
-        <div class="card shadow-sm border-start border-danger border-4">
+        <div class="card shadow-sm border-start border-warning border-4">
             <div class="card-body">
                 <small class="text-muted">Saldo Pendiente (MXN)</small>
-                <h3 class="fw-bold text-danger">
+                <h3 class="fw-bold text-warning">
                     ${{ saldo_pendiente|floatformat:2|intcomma }}
                 </h3>
             </div>
@@ -43,10 +43,10 @@
     </div>
 
     <div class="col-md-3">
-        <div class="card shadow-sm border-start border-warning border-4">
+        <div class="card shadow-sm border-start border-danger border-4">
             <div class="card-body">
                 <small class="text-muted">Facturas Vencidas</small>
-                <h3 class="fw-bold text-warning">
+                <h3 class="fw-bold text-danger">
                     {{ total_vencidas }}
                 </h3>
             </div>

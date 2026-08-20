@@ -1,0 +1,316 @@
+{% extends 'finanzas/base_finanzas.html' %}
+{% load humanize %}
+
+{% block title %}Editar Factura de Proveedor{% endblock %}
+{% block page_title %}Editar Factura {{ factura.factura }}{% endblock %}
+
+{% block content %}
+
+<div class="card shadow-sm">
+
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <a href="{% url 'factura_proveedor_detalle' factura.pk %}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i>
+            Volver al Detalle
+        </a>
+
+        {% if factura.total_pagado > 0 %}
+        <span class="badge bg-warning text-dark">
+            <i class="bi bi-exclamation-triangle"></i>
+            Esta factura ya tiene ${{ factura.total_pagado|floatformat:2|intcomma }} pagados
+        </span>
+        {% endif %}
+    </div>
+
+    <div class="card-body">
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <div class="row g-3">
+
+                <!-- Proveedor -->
+                <div class="col-md-6">
+                    <label for="expediente" class="form-label">Proveedor <span class="text-danger">*</span></label>
+                    <select name="expediente" id="expediente" class="form-select" required>
+                        <option value="">Seleccione un proveedor</option>
+                        {% for expediente in expedientes %}
+                            <option value="{{ expediente.pk }}"
+                                {% if expediente.pk == factura.expediente.pk %}selected{% endif %}>
+                                {{ expediente.nombre_completo }}{% if expediente.rfc %} — {{ expediente.rfc }}{% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Número de factura -->
+                <div class="col-md-3">
+                    <label for="factura" class="form-label">No. Factura <span class="text-danger">*</span></label>
+                    <input type="text" name="factura" id="factura" class="form-control text-uppercase"
+                           value="{{ factura.factura }}" required>
+                </div>
+
+                <!-- Orden de compra -->
+                <div class="col-md-3">
+                    <label for="orden_compra" class="form-label">Orden de Compra</label>
+                    <input type="text" name="orden_compra" id="orden_compra" class="form-control text-uppercase"
+                           value="{{ factura.orden_compra }}">
+                </div>
+
+                <!-- Fecha de factura -->
+                <div class="col-md-3">
+                    <label for="fecha_factura" class="form-label">Fecha de Factura <span class="text-danger">*</span></label>
+                    <input type="date" name="fecha_factura" id="fecha_factura" class="form-control"
+                           value="{{ factura.fecha_factura|date:'Y-m-d' }}" required>
+                </div>
+
+                <!-- Días de crédito -->
+                <div class="col-md-3">
+                    <label for="dias_credito" class="form-label">Días de Crédito</label>
+                    <input type="number" name="dias_credito" id="dias_credito" class="form-control" min="0"
+                           value="{{ factura.dias_credito }}">
+                </div>
+
+                <!-- Moneda -->
+                <div class="col-md-3">
+                    <label for="moneda" class="form-label">Moneda</label>
+                    <select name="moneda" id="moneda" class="form-select">
+                        {% for valor,texto in monedas %}
+                            <option value="{{ valor }}" {% if valor == factura.moneda %}selected{% endif %}>
+                                {{ texto }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Tipo de cambio -->
+                <div class="col-md-3">
+                    <label for="tipo_cambio" class="form-label">
+                        Tipo de Cambio <span class="text-danger" id="tipo_cambio_required" style="display:none;">*</span>
+                    </label>
+                    <input type="text" inputmode="decimal" name="tipo_cambio" id="tipo_cambio"
+                           class="form-control text-center" value="{{ factura.tipo_cambio|floatformat:2|intcomma }}"
+                           {% if factura.moneda == "MXN" %}disabled{% endif %}>
+                    <div class="form-text">Solo aplica si la moneda no es MXN.</div>
+                </div>
+
+                <!-- Fecha de vencimiento -->
+                <div class="col-md-3">
+                    <label for="fecha_vencimiento" class="form-label">Fecha de Vencimiento <span class="text-danger">*</span></label>
+                    <input type="date" name="fecha_vencimiento" id="fecha_vencimiento" class="form-control"
+                           value="{{ factura.fecha_vencimiento|date:'Y-m-d' }}" required>
+                </div>
+
+                <!-- Estatus: solo informativo, no editable -->
+                <div class="col-md-3">
+                    <label class="form-label">Estatus actual</label>
+                    <div>
+                        {% if factura.estatus == "Pagada" %}
+                            <span class="badge bg-success fs-6">Pagada</span>
+                        {% elif factura.estatus == "Parcial" %}
+                            <span class="badge bg-info fs-6">Parcial</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark fs-6">Pendiente</span>
+                        {% endif %}
+                    </div>
+                    <div class="form-text">Se calcula automáticamente según los pagos registrados.</div>
+                </div>
+
+                <hr class="mt-4">
+
+                <!-- Subtotal -->
+                <div class="col-md-3">
+                    <label for="subtotal" class="form-label">Subtotal <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="text" inputmode="decimal" name="subtotal" id="subtotal"
+                               class="form-control text-end" value="{{ factura.subtotal|floatformat:2|intcomma }}" required>
+                    </div>
+                </div>
+
+                <!-- IVA -->
+                <div class="col-md-3">
+                    <label for="iva" class="form-label">IVA</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="text" inputmode="decimal" name="iva" id="iva"
+                               class="form-control text-end" value="{{ factura.iva|floatformat:2|intcomma }}">
+                    </div>
+                    <div class="form-text">
+                        <a href="#" id="btn-iva-16">Calcular 16%</a>
+                    </div>
+                </div>
+
+                <!-- Total (solo lectura, informativo) -->
+                <div class="col-md-3">
+                    <label for="total_preview" class="form-label">Total</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="text" id="total_preview" class="form-control" disabled
+                               value="{{ factura.total|floatformat:2|intcomma }}">
+                    </div>
+                    <div class="form-text">Se calcula automáticamente (subtotal + IVA).</div>
+                    <div class="form-text text-primary fw-bold" id="total_mxn_preview" style="display:none;"></div>
+                </div>
+
+                <!-- Observaciones -->
+                <div class="col-12">
+                    <label for="observaciones" class="form-label">Observaciones</label>
+                    <textarea name="observaciones" id="observaciones" class="form-control" rows="3">{{ factura.observaciones }}</textarea>
+                </div>
+
+            </div>
+
+            <div class="mt-4 d-flex justify-content-end gap-2">
+                <a href="{% url 'factura_proveedor_detalle' factura.pk %}" class="btn btn-outline-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-success" id="btn-guardar">
+                    <i class="bi bi-check-circle"></i>
+                    Guardar Cambios
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    const subtotalInput = document.getElementById('subtotal');
+    const ivaInput = document.getElementById('iva');
+    const totalPreview = document.getElementById('total_preview');
+    const totalMxnPreview = document.getElementById('total_mxn_preview');
+    const btnIva16 = document.getElementById('btn-iva-16');
+    const fechaFactura = document.getElementById('fecha_factura');
+    const diasCredito = document.getElementById('dias_credito');
+    const fechaVencimiento = document.getElementById('fecha_vencimiento');
+    const monedaSelect = document.getElementById('moneda');
+    const tipoCambioInput = document.getElementById('tipo_cambio');
+    const tipoCambioRequired = document.getElementById('tipo_cambio_required');
+    const form = document.querySelector('form');
+    const btnGuardar = document.getElementById('btn-guardar');
+
+    // ====== Helpers de formato numérico (miles con coma) ======
+    function numeroLimpio(valor) {
+        if (!valor) return 0;
+        const limpio = valor.toString().replace(/,/g, '');
+        return parseFloat(limpio) || 0;
+    }
+
+    function formatearMiles(input, decimales) {
+        if (!input.value) return;
+        const valor = numeroLimpio(input.value);
+        input.value = valor.toLocaleString('es-MX', {
+            minimumFractionDigits: decimales,
+            maximumFractionDigits: decimales
+        });
+    }
+
+    function actualizarTotal() {
+        const subtotal = numeroLimpio(subtotalInput.value);
+        const iva = numeroLimpio(ivaInput.value);
+        const total = subtotal + iva;
+        totalPreview.value = total.toLocaleString('es-MX', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+        actualizarTotalMxn(total);
+    }
+
+    function actualizarTotalMxn(total) {
+        if (monedaSelect.value === 'MXN') {
+            totalMxnPreview.style.display = 'none';
+            return;
+        }
+        const tipoCambio = numeroLimpio(tipoCambioInput.value);
+        if (tipoCambio <= 0) {
+            totalMxnPreview.style.display = 'none';
+            return;
+        }
+        const totalMxn = total * tipoCambio;
+        totalMxnPreview.textContent = '≈ $' + totalMxn.toLocaleString('es-MX', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' MXN';
+        totalMxnPreview.style.display = 'block';
+    }
+
+    subtotalInput.addEventListener('input', actualizarTotal);
+    ivaInput.addEventListener('input', actualizarTotal);
+    subtotalInput.addEventListener('blur', function () { formatearMiles(subtotalInput, 2); });
+    ivaInput.addEventListener('blur', function () { formatearMiles(ivaInput, 2); });
+
+    tipoCambioInput.addEventListener('input', function () {
+        actualizarTotalMxn(numeroLimpio(totalPreview.value));
+    });
+    tipoCambioInput.addEventListener('blur', function () { formatearMiles(tipoCambioInput, 2); });
+
+    btnIva16.addEventListener('click', function (e) {
+        e.preventDefault();
+        const subtotal = numeroLimpio(subtotalInput.value);
+        ivaInput.value = (subtotal * 0.16).toFixed(2);
+        actualizarTotal();
+        formatearMiles(ivaInput, 2);
+    });
+
+    // A diferencia de "crear", en "editar" NO sobreescribimos la fecha de
+    // vencimiento automáticamente al cargar (ya tiene una capturada). Solo
+    // se sugiere de nuevo si el usuario cambia fecha_factura o dias_credito
+    // manualmente después de que la página ya cargó.
+    let sugerenciaActiva = false;
+
+    function sugerirVencimiento() {
+        if (!sugerenciaActiva || !fechaFactura.value) return;
+        const dias = parseInt(diasCredito.value, 10) || 0;
+        const fecha = new Date(fechaFactura.value + 'T00:00:00');
+        fecha.setDate(fecha.getDate() + dias);
+        fechaVencimiento.value = fecha.toISOString().split('T')[0];
+    }
+
+    fechaFactura.addEventListener('change', function () { sugerenciaActiva = true; sugerirVencimiento(); });
+    diasCredito.addEventListener('change', function () { sugerenciaActiva = true; sugerirVencimiento(); });
+
+    // Mayúsculas en tiempo real
+    document.querySelectorAll('.text-uppercase').forEach(function (input) {
+        input.addEventListener('input', function () {
+            const cursorPos = input.selectionStart;
+            input.value = input.value.toUpperCase();
+            input.setSelectionRange(cursorPos, cursorPos);
+        });
+    });
+
+    // Toggle de tipo de cambio según moneda
+    function actualizarTipoCambio() {
+        const esMxn = monedaSelect.value === 'MXN';
+        tipoCambioInput.disabled = esMxn;
+        tipoCambioRequired.style.display = esMxn ? 'none' : 'inline';
+        if (esMxn) {
+            tipoCambioInput.value = '1.00';
+        }
+        actualizarTotalMxn(numeroLimpio(totalPreview.value));
+    }
+
+    monedaSelect.addEventListener('change', actualizarTipoCambio);
+    actualizarTipoCambio();
+
+    // ====== Limpiar comas antes de enviar al backend ======
+    form.addEventListener('submit', function () {
+        if (subtotalInput.value) subtotalInput.value = numeroLimpio(subtotalInput.value).toFixed(2);
+        if (ivaInput.value) ivaInput.value = numeroLimpio(ivaInput.value).toFixed(2);
+        if (tipoCambioInput.value) tipoCambioInput.value = numeroLimpio(tipoCambioInput.value).toFixed(2);
+
+        btnGuardar.disabled = true;
+        btnGuardar.innerHTML = `
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            Guardando...
+        `;
+    });
+
+    // ====== Formato inicial con comas ======
+    formatearMiles(subtotalInput, 2);
+    formatearMiles(ivaInput, 2);
+    formatearMiles(tipoCambioInput, 2);
+
+});
+</script>
+
+{% endblock %}

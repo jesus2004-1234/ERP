@@ -1,0 +1,185 @@
+{% extends 'finanzas/base_finanzas.html' %}
+{% load l10n %}
+{% load humanize %}
+
+{% block title %}Registrar Pago{% endblock %}
+{% block page_title %}Registrar Pago{% endblock %}
+
+{% block content %}
+
+<div class="card shadow-sm">
+
+    <div class="card-header">
+        <a href="{% url 'factura_proveedor_detalle' factura.pk %}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i>
+            Volver al Detalle
+        </a>
+    </div>
+
+    <div class="card-body">
+
+        <div class="alert alert-light border d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <strong>Factura {{ factura.factura }}</strong>
+                — {{ factura.expediente.nombre_completo }}
+            </div>
+            <div class="text-end">
+                <small class="text-muted d-block">Saldo pendiente</small>
+                <span class="fw-bold text-danger fs-5">
+                    ${{ factura.saldo_pendiente|floatformat:2|intcomma }}
+                    {% if factura.moneda != "MXN" %}{{ factura.moneda }}{% endif %}
+                </span>
+            </div>
+        </div>
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <div class="row g-3">
+
+                <div class="col-md-4">
+                    <label for="monto" class="form-label">Monto <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="text" inputmode="decimal"
+                               data-max="{{ factura.saldo_pendiente|unlocalize }}"
+                               name="monto" id="monto" class="form-control text-end" required>
+                    </div>
+                    <div class="form-text">
+                        Máximo: ${{ factura.saldo_pendiente|floatformat:2|intcomma }}
+                        <a href="#" id="btn-pago-total">(pagar saldo total)</a>
+                    </div>
+                    <div class="invalid-feedback d-block" id="monto-error" style="display:none;"></div>
+                </div>
+
+                <div class="col-md-4">
+                    <label for="metodo_pago" class="form-label">Método de Pago</label>
+                    <select name="metodo_pago" id="metodo_pago" class="form-select">
+                        {% for valor,texto in metodos %}
+                            <option value="{{ valor }}">{{ texto }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <label for="referencia" class="form-label">Referencia</label>
+                    <input type="text" name="referencia" id="referencia" class="form-control text-uppercase">
+                </div>
+
+                <div class="col-md-6">
+                    <label for="fecha_pago" class="form-label">Fecha de Pago <span class="text-danger">*</span></label>
+                    <input type="date" name="fecha_pago" id="fecha_pago" class="form-control" required>
+                </div>
+
+                <div class="col-md-6">
+                    <label for="fecha_deposito" class="form-label">Fecha de Depósito</label>
+                    <input type="date" name="fecha_deposito" id="fecha_deposito" class="form-control">
+                    <div class="form-text">Opcional, si es distinta a la fecha de pago.</div>
+                </div>
+
+                <div class="col-12">
+                    <label for="observaciones" class="form-label">Observaciones</label>
+                    <textarea name="observaciones" id="observaciones" class="form-control" rows="3"></textarea>
+                </div>
+
+            </div>
+
+            <div class="mt-4 d-flex justify-content-end gap-2">
+                <a href="{% url 'factura_proveedor_detalle' factura.pk %}" class="btn btn-outline-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-success" id="btn-guardar">
+                    <i class="bi bi-check-circle"></i>
+                    Registrar Pago
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    const montoInput = document.getElementById('monto');
+    const montoError = document.getElementById('monto-error');
+    const btnPagoTotal = document.getElementById('btn-pago-total');
+    const referenciaInput = document.getElementById('referencia');
+    const form = document.querySelector('form');
+    const btnGuardar = document.getElementById('btn-guardar');
+    const saldoMaximo = parseFloat(montoInput.dataset.max) || 0;
+
+    function numeroLimpio(valor) {
+        if (!valor) return 0;
+        const limpio = valor.toString().replace(/,/g, '');
+        return parseFloat(limpio) || 0;
+    }
+
+    function formatearMiles(input) {
+        if (!input.value) return;
+        const valor = numeroLimpio(input.value);
+        input.value = valor.toLocaleString('es-MX', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    function validarMonto() {
+        const valor = numeroLimpio(montoInput.value);
+
+        if (valor > saldoMaximo) {
+            montoInput.classList.add('is-invalid');
+            montoError.textContent = 'El monto no puede exceder el saldo pendiente ($' +
+                saldoMaximo.toLocaleString('es-MX', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ').';
+            montoError.style.display = 'block';
+            return false;
+        }
+
+        montoInput.classList.remove('is-invalid');
+        montoError.style.display = 'none';
+        return true;
+    }
+
+    montoInput.addEventListener('input', validarMonto);
+    montoInput.addEventListener('blur', function () {
+        formatearMiles(montoInput);
+        validarMonto();
+    });
+
+    btnPagoTotal.addEventListener('click', function (e) {
+        e.preventDefault();
+        montoInput.value = saldoMaximo.toLocaleString('es-MX', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+        validarMonto();
+    });
+
+    referenciaInput.addEventListener('input', function () {
+        const cursorPos = referenciaInput.selectionStart;
+        referenciaInput.value = referenciaInput.value.toUpperCase();
+        referenciaInput.setSelectionRange(cursorPos, cursorPos);
+    });
+
+    form.addEventListener('submit', function (e) {
+        if (!validarMonto()) {
+            e.preventDefault();
+            montoInput.focus();
+            return;
+        }
+
+        if (montoInput.value) {
+            montoInput.value = numeroLimpio(montoInput.value).toFixed(2);
+        }
+
+        btnGuardar.disabled = true;
+        btnGuardar.innerHTML = `
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            Guardando...
+        `;
+    });
+
+});
+</script>
+
+{% endblock %}

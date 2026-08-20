@@ -1,0 +1,360 @@
+{% extends 'finanzas/base_finanzas.html' %}
+{% load humanize %}
+
+{% block title %}Nueva Factura de Proveedor{% endblock %}
+{% block page_title %}Nueva Factura de Proveedor{% endblock %}
+
+{% block content %}
+
+<div class="card shadow-sm">
+
+    <div class="card-body">
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <div class="row g-3">
+
+                <!-- Proveedor -->
+                <div class="col-md-6">
+                    <label for="expediente" class="form-label">Proveedor <span class="text-danger">*</span></label>
+                    <select name="expediente" id="expediente" class="form-select" required>
+                        <option value="">Seleccione un proveedor</option>
+                        {% for expediente in expedientes %}
+                            <option value="{{ expediente.pk }}"
+                            {% if request.POST.expediente == expediente.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ expediente.nombre_completo }}{% if expediente.rfc %} — {{ expediente.rfc }}{% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Número de factura -->
+                <div class="col-md-3">
+                    <label for="factura" class="form-label">No. Factura <span class="text-danger">*</span></label>
+                    <input type="text" name="factura" id="factura" value="{{ request.POST.factura }}" class="form-control text-uppercase" required>
+                </div>
+
+                <!-- Orden de compra -->
+                <div class="col-md-3">
+                    <label for="orden_compra" class="form-label">Orden de Compra</label>
+                    <input type="text" name="orden_compra" id="orden_compra" value="{{ request.POST.orden_compra }}" class="form-control text-uppercase">
+                </div>
+
+                <!-- Fecha de factura -->
+                <div class="col-md-3">
+                    <label for="fecha_factura" class="form-label">Fecha de Factura <span class="text-danger">*</span></label>
+                    <input type="date" name="fecha_factura" id="fecha_factura" class="form-control" required
+                           value="{{ request.POST.fecha_factura }}">
+                </div>
+
+                <!-- Días de crédito -->
+                <div class="col-md-3">
+                    <label for="dias_credito" class="form-label">Días de Crédito</label>
+                    <input type="number" name="dias_credito" id="dias_credito" class="form-control" min="0" value="{{ request.POST.dias_credito|default:'0' }}">
+                </div>
+
+                <!-- Moneda -->
+                <div class="col-md-3">
+                    <label for="moneda" class="form-label">Moneda</label>
+                    <select name="moneda" id="moneda" class="form-select">
+                        {% for valor,texto in monedas %}
+                            <option value="{{ valor }}"
+                                {% if request.POST.moneda == valor or not request.POST and valor == "MXN" %}selected{% endif %}>
+                                {{ texto }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Tipo de cambio -->
+                <div class="col-md-3">
+                    <label for="tipo_cambio" class="form-label">
+                        Tipo de Cambio <span class="text-danger" id="tipo_cambio_required" style="display:none;">*</span>
+                    </label>
+                    <input type="text" inputmode="decimal" name="tipo_cambio" id="tipo_cambio"
+                           value="{{ request.POST.tipo_cambio|default:'1.00'|floatformat:2|intcomma }}" class="form-control text-center">
+                    <div class="form-text">Solo aplica si la moneda no es MXN.</div>
+                </div>
+
+                <!-- Fecha de vencimiento -->
+                <div class="col-md-3">
+                    <label for="fecha_vencimiento" class="form-label">Fecha de Vencimiento <span class="text-danger">*</span></label>
+                    <input type="date" name="fecha_vencimiento" id="fecha_vencimiento" class="form-control" required
+                           value="{{ request.POST.fecha_vencimiento }}">
+                    <div class="form-text">Se calcula sola si capturas días de crédito, o edítala manualmente.</div>
+                </div>
+
+                <!-- Estatus -->
+                <div class="col-md-3">
+                    <label for="estatus" class="form-label">Estatus</label>
+                    <select name="estatus" id="estatus" class="form-select">
+                        {% for valor,texto in estatuses %}
+                            <option value="{{ valor }}"
+                                {% if request.POST.estatus == valor or not request.POST and valor == "Pendiente" %}selected{% endif %}>
+                                {{ texto }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <hr class="mt-4">
+
+                <!-- Subtotal -->
+                <div class="col-md-3">
+                    <label for="subtotal" class="form-label">Subtotal <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="text" inputmode="decimal" name="subtotal" id="subtotal"
+                               value="{{ request.POST.subtotal|default:''|floatformat:2|intcomma }}" class="form-control text-end" required>
+                    </div>
+                </div>
+
+                <!-- IVA -->
+                <div class="col-md-3">
+                    <label for="iva" class="form-label">IVA</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="text" inputmode="decimal" name="iva" id="iva"
+                               value="{{ request.POST.iva|default:''|floatformat:2|intcomma }}" class="form-control text-end">
+                    </div>
+                    <div class="form-text">
+                        <div class="btn-group btn-group-sm mb-1" role="group">
+                            <button type="button" class="btn btn-outline-secondary btn-iva-rapido" data-porcentaje="0">0%</button>
+                            <button type="button" class="btn btn-outline-secondary btn-iva-rapido" data-porcentaje="8">8%</button>
+                            <button type="button" class="btn btn-outline-secondary btn-iva-rapido" data-porcentaje="16">16%</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Total (solo lectura, informativo) -->
+                <div class="col-md-3">
+                    <label for="total_preview" class="form-label">Total</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="text" id="total_preview" class="form-control" value="0.00" disabled>
+                    </div>
+                    <div class="form-text">Se calcula automáticamente (subtotal + IVA).</div>
+                    <div class="form-text text-primary fw-bold" id="total_mxn_preview" style="display:none;"></div>
+                </div>
+
+                <!-- Observaciones -->
+                <div class="col-12">
+                    <label for="observaciones" class="form-label">Observaciones</label>
+                    <textarea name="observaciones" id="observaciones" class="form-control" rows="3">{{ request.POST.observaciones }}</textarea>
+                </div>
+
+            </div>
+
+            <div class="mt-4 d-flex justify-content-end gap-2">
+                <a href="{% url 'facturas_proveedor_lista' %}" class="btn btn-outline-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-success" id="btn-guardar">
+                    <i class="bi bi-check-circle"></i>
+                    Guardar Factura
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    // ====== Elementos DOM ======
+    const subtotalInput = document.getElementById('subtotal');
+    const ivaInput = document.getElementById('iva');
+    const totalPreview = document.getElementById('total_preview');
+    const totalMxnPreview = document.getElementById('total_mxn_preview');
+    const fechaFactura = document.getElementById('fecha_factura');
+    const diasCredito = document.getElementById('dias_credito');
+    const fechaVencimiento = document.getElementById('fecha_vencimiento');
+    const monedaSelect = document.getElementById('moneda');
+    const tipoCambioInput = document.getElementById('tipo_cambio');
+    const tipoCambioRequired = document.getElementById('tipo_cambio_required');
+    const form = document.querySelector('form');
+    const btnGuardar = document.getElementById('btn-guardar');
+
+    // ====== Variables de estado ======
+    let datosCambiados = false;
+
+    // ====== Helpers de formato numérico (miles con coma) ======
+    function numeroLimpio(valor) {
+        if (!valor) return 0;
+        const limpio = valor.toString().replace(/,/g, '');
+        return parseFloat(limpio) || 0;
+    }
+
+    function formatearMiles(input) {
+        const valor = numeroLimpio(input.value);
+        if (!input.value) return; // no forzar 0.00 en campos vacíos (subtotal/iva)
+        input.value = valor.toLocaleString('es-MX', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    // ====== Funciones principales ======
+    function actualizarTotal() {
+        const subtotal = numeroLimpio(subtotalInput.value);
+        const iva = numeroLimpio(ivaInput.value);
+        const total = subtotal + iva;
+
+        totalPreview.value = total.toLocaleString('es-MX', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+
+        actualizarTotalMxn(total);
+        return total;
+    }
+
+    function actualizarTotalMxn(total) {
+        if (monedaSelect.value === 'MXN') {
+            totalMxnPreview.style.display = 'none';
+            return;
+        }
+
+        const tipoCambio = numeroLimpio(tipoCambioInput.value);
+        if (tipoCambio <= 0) {
+            totalMxnPreview.style.display = 'none';
+            return;
+        }
+
+        const totalMxn = total * tipoCambio;
+        totalMxnPreview.textContent = '≈ $' + totalMxn.toLocaleString('es-MX', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }) + ' MXN';
+        totalMxnPreview.style.display = 'block';
+    }
+
+    function sugerirVencimiento() {
+        if (!fechaFactura.value) return;
+        const dias = parseInt(diasCredito.value, 10) || 0;
+        const fecha = new Date(fechaFactura.value + 'T00:00:00');
+        fecha.setDate(fecha.getDate() + dias);
+        fechaVencimiento.value = fecha.toISOString().split('T')[0];
+    }
+
+    function actualizarTipoCambio() {
+        const esMxn = monedaSelect.value === 'MXN';
+        tipoCambioInput.disabled = esMxn;
+        tipoCambioRequired.style.display = esMxn ? 'none' : 'inline';
+        tipoCambioInput.classList.toggle('bg-light', esMxn);
+        tipoCambioInput.placeholder = esMxn ? 'No requerido' : 'Tipo de cambio';
+
+        if (esMxn) {
+            tipoCambioInput.value = '';
+            totalMxnPreview.style.display = 'none';
+        } else if (!tipoCambioInput.value) {
+            tipoCambioInput.value = '1.00';
+        }
+        actualizarTotal();
+    }
+
+    function calcularVencimientoDesdeFecha() {
+        if (fechaFactura.value && fechaVencimiento.value) {
+            const fecha1 = new Date(fechaFactura.value + 'T00:00:00');
+            const fecha2 = new Date(fechaVencimiento.value + 'T00:00:00');
+            const diffTime = Math.abs(fecha2 - fecha1);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            if (diffDays > 0) {
+                diasCredito.value = diffDays;
+            }
+        }
+    }
+
+    function marcarCambios() {
+        datosCambiados = true;
+    }
+
+    // ====== Event Listeners ======
+    subtotalInput.addEventListener('input', actualizarTotal);
+    ivaInput.addEventListener('input', actualizarTotal);
+
+    tipoCambioInput.addEventListener('input', function() {
+        actualizarTotalMxn(numeroLimpio(totalPreview.value));
+    });
+    tipoCambioInput.addEventListener('blur', function() {
+        formatearMiles(tipoCambioInput);
+    });
+
+    subtotalInput.addEventListener('blur', function() {
+        formatearMiles(subtotalInput);
+    });
+    ivaInput.addEventListener('blur', function() {
+        formatearMiles(ivaInput);
+    });
+
+    fechaFactura.addEventListener('change', sugerirVencimiento);
+    diasCredito.addEventListener('change', sugerirVencimiento);
+    fechaVencimiento.addEventListener('change', calcularVencimientoDesdeFecha);
+    monedaSelect.addEventListener('change', actualizarTipoCambio);
+
+    // ====== IVA rápido ======
+    document.querySelectorAll('.btn-iva-rapido').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const porcentaje = parseFloat(this.dataset.porcentaje) / 100;
+            const subtotal = numeroLimpio(subtotalInput.value);
+            ivaInput.value = (subtotal * porcentaje).toFixed(2);
+            actualizarTotal();
+            formatearMiles(ivaInput);
+            marcarCambios();
+        });
+    });
+
+    // ====== Mayúsculas en tiempo real ======
+    document.querySelectorAll('.text-uppercase').forEach(function(input) {
+        input.addEventListener('input', function() {
+            const cursorPos = input.selectionStart;
+            input.value = input.value.toUpperCase();
+            input.setSelectionRange(cursorPos, cursorPos);
+        });
+    });
+
+    // ====== Prevención de envío duplicado ======
+    form.addEventListener('submit', function(e) {
+        // Importante: el backend espera decimales sin coma de miles.
+        // Se limpia el valor visual justo antes de enviar, sin bloquear el submit.
+        [subtotalInput, ivaInput, tipoCambioInput].forEach(function(input) {
+            if (input.value) {
+                input.value = numeroLimpio(input.value).toFixed(2);
+            }
+        });
+
+        btnGuardar.disabled = true;
+        btnGuardar.innerHTML = `
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            Guardando...
+        `;
+        datosCambiados = false;
+    });
+
+    // ====== Advertencia de cambios no guardados (único listener genérico) ======
+    document.querySelectorAll('input, select, textarea').forEach(function(el) {
+        el.addEventListener('change', marcarCambios);
+        el.addEventListener('input', marcarCambios);
+    });
+
+    window.addEventListener('beforeunload', function(e) {
+        if (datosCambiados) {
+            e.preventDefault();
+            e.returnValue = 'Tienes cambios sin guardar. ¿Estás seguro de salir?';
+        }
+    });
+
+    // ====== Inicialización ======
+    actualizarTipoCambio();
+    actualizarTotal();
+    formatearMiles(subtotalInput);
+    formatearMiles(ivaInput);
+    formatearMiles(tipoCambioInput);
+
+});
+</script>
+
+{% endblock %}
