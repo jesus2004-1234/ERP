@@ -516,3 +516,133 @@ class PagoProveedor(models.Model):
         with transaction.atomic():
             super().delete(*args, **kwargs)
             factura.actualizar_estatus()
+
+class PresupuestoAnual(models.Model):
+
+    class Estatus(models.TextChoices):
+        BORRADOR = "Borrador", "Borrador"
+        ACTIVO = "Activo", "Activo"
+        CERRADO = "Cerrado", "Cerrado"
+
+    ejercicio = models.PositiveIntegerField(unique=True, verbose_name="Ejercicio")
+    nombre = models.CharField(max_length=150, verbose_name="Nombre")
+    estatus = models.CharField(max_length=20, verbose_name="Estatus")
+    observaciones = models.TextField(blank=True, verbose_name="Observaciones")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creacion")
+    fecha_actualizacion = models.DateTimeField(auto_now=True, verbose_name="Ultima actualizacion")
+
+    class Meta: 
+        verbose_name = "Presupuesto anual"
+        verbose_name_plural = "Presupuestos anuales"
+        ordering = ["-ejercicio"]
+
+    def __str__(self):
+        return self.nombre
+
+class ConceptoIngreso(models.Model):
+    codigo = models.CharField(max_length=20, unique=True, verbose_name="Codigo")
+    nombre = models.CharField(max_length=150, verbose_name="Nombre")
+    descripcion = models.TextField(blank=True, verbose_name="Descripcion")
+    activo = models.BooleanField(default=True, verbose_name="Activo")
+
+
+    class Meta:
+        verbose_name = "Concepto de ingreso"
+        verbose_name_plural = "Conceptos de ingresos"
+        ordering = ["codigo"]
+
+    def __str__(self):
+        return f"{self.codigo} - {self.nombre}"
+
+class PartidaGasto(models.Model):
+    codigo = models.CharField(max_length=20, unique=True, verbose_name="Codigo")
+    nombre = models.CharField(max_length=150, verbose_name="Nombre")
+    descripcion = models.TextField(blank=True, verbose_name="Descripcion")
+    partida_padre = models.ForeignKey("self", on_delete=models.PROTECT, null=True, blank=True, related_name="subpartidas", verbose_name="Partida padre")
+    activo = models.BooleanField(default=True, verbose_name="Activo")
+
+    class Meta:
+        verbose_name = "Partida de gasto"
+        verbose_name_plural = "Partidas de gastos"
+        ordering = ["codigo"]
+
+    def __str__(self):
+        return f"{self.codigo} - {self.nombre}"
+
+
+class PresupuestoIngreso(models.Model):
+    presupuesto = models.ForeignKey(PresupuestoAnual, on_delete=models.CASCADE, related_name="ingresos", verbose_name="Presupuesto")
+    concepto = models.ForeignKey(ConceptoIngreso, on_delete=models.PROTECT, related_name="presupuesto", verbose_name="Concepto de ingresos")
+    monto_anual = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name="Monto anual")
+
+    class Meta:
+        verbose_name = "Presupuesto de ingreso"
+        verbose_name_plural = "Presupuestos de ingresos"
+
+        constraints = [
+            models.UniqueConstraint(
+                fields = ["presupuesto", "concepto"],
+                name = "unique_presupuesto_concepto_ingreso"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.presupuesto} - {self.concepto}"
+
+
+class PresupuestoGasto(models.Model):
+    presupuesto = models.ForeignKey(PresupuestoAnual, on_delete=models.CASCADE, related_name="gastos", verbose_name="Presupuesto")
+    partida = models.ForeignKey(PartidaGasto, on_delete=models.PROTECT, related_name="presupuestos", verbose_name="Partida de gastos")
+    monto_anual = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name="Monto anual")
+
+    class Meta:
+        verbose_name = "Presupuesto de gasto"
+        verbose_name_plural = "Presupuestos de gastos"
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=["presupuesto", "partida"],
+                name = "unique_presupuesto_partida_gasto"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.presupuesto} - {self.partida}"
+
+    
+class PresupuestoIngresoMensual(models.Model):
+    presupuesto_ingreso = models.ForeignKey(PresupuestoIngreso, on_delete=models.CASCADE, related_name="mensualidades", verbose_name="Presupuesto de ingreso")
+    mes = models.PositiveSmallIntegerField(verbose_name="Mes")
+    monto = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name="Monto")
+
+    class Meta:
+        verbose_name = "Presupuesto mensual de ingreso"
+        verbose_name_plural = "Presupuestos mensuales de ingresos"
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=["presupuesto_ingreso", "mes"],
+                name = "unique_presupuesto_ingreso_mes"
+            )
+        ]
+
+        ordering = ["mes"]
+
+
+class PresupuestoGastoMensual(models.Model):
+    presupuesto_gasto = models.ForeignKey(PresupuestoGasto, on_delete=models.CASCADE, related_name="mensualidades", verbose_name="Presupuesto de gasto")
+    mes = models.PositiveSmallIntegerField(verbose_name="Mes")
+    monto = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name="Monto")
+
+    class Meta:
+        verbose_name = "Presupuesto mensual de gasto"
+        verbose_name_plural = "Presupuestos mensuales de gastos"
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=["presupuesto_gasto", "mes"],
+                name = "unique_presupuesto_gasto_mes"
+            )
+        ]
+
+        ordering = ["mes"]
