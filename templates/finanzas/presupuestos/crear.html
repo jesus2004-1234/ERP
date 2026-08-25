@@ -1,0 +1,155 @@
+{% extends 'finanzas/base_finanzas.html' %}
+
+{% block title %}Nuevo Presupuesto{% endblock %}
+{% block page_title %}Nuevo Presupuesto Anual{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+
+    <div class="col-lg-8">
+
+        <div class="card shadow-sm border-0">
+
+            <div class="card-header bg-white py-3">
+
+                <h5 class="mb-0">
+                    <i class="bi bi-wallet2 me-2"></i>
+                    Datos del presupuesto
+                </h5>
+
+            </div>
+
+            <div class="card-body">
+
+                <form method="post">
+
+                    {% csrf_token %}
+
+                    <div class="row">
+
+                        <div class="col-md-4 mb-3">
+
+                            <label for="ejercicio"
+                                   class="form-label">
+                                Ejercicio
+                            </label>
+
+                            <input type="number"
+                                   name="ejercicio"
+                                   id="ejercicio"
+                                   class="form-control"
+                                   min="2000"
+                                   max="2100"
+                                   value="{{ presupuesto.ejercicio|default:'' }}"
+                                   required>
+
+                        </div>
+
+
+                        <div class="col-md-8 mb-3">
+
+                            <label for="nombre"
+                                   class="form-label">
+                                Nombre
+                            </label>
+
+                            <input type="text"
+                                   name="nombre"
+                                   id="nombre"
+                                   class="form-control"
+                                   maxlength="150"
+                                   value="{{ presupuesto.nombre|default:'' }}"
+                                   placeholder="Ej. Presupuesto Anual 2026"
+                                   required>
+
+                        </div>
+
+
+                        <div class="col-md-6 mb-3">
+
+                            <label for="estatus"
+                                   class="form-label">
+                                Estatus
+                            </label>
+
+                            <select name="estatus"
+                                    id="estatus"
+                                    class="form-select"
+                                    required>
+
+                                <option value="Borrador"
+                                    {% if presupuesto.estatus == "Borrador" or not presupuesto %}
+                                        selected
+                                    {% endif %}>
+                                    Borrador
+                                </option>
+
+                                <option value="Activo"
+                                    {% if presupuesto.estatus == "Activo" %}
+                                        selected
+                                    {% endif %}>
+                                    Activo
+                                </option>
+
+                                <option value="Cerrado"
+                                    {% if presupuesto.estatus == "Cerrado" %}
+                                        selected
+                                    {% endif %}>
+                                    Cerrado
+                                </option>
+
+                            </select>
+
+                        </div>
+
+
+                        <div class="col-12 mb-3">
+
+                            <label for="observaciones"
+                                   class="form-label">
+                                Observaciones
+                            </label>
+
+                            <textarea name="observaciones"
+                                      id="observaciones"
+                                      class="form-control"
+                                      rows="4"
+                                      placeholder="Observaciones del presupuesto...">{{ presupuesto.observaciones|default:'' }}</textarea>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="d-flex justify-content-between mt-3">
+
+                        <a href="{% url 'finanzas:presupuesto_lista' %}"
+                           class="btn btn-outline-secondary">
+
+                            <i class="bi bi-arrow-left me-1"></i>
+                            Cancelar
+
+                        </a>
+
+                        <button type="submit"
+                                class="btn btn-primary">
+
+                            <i class="bi bi-check-lg me-1"></i>
+                            Guardar presupuesto
+
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

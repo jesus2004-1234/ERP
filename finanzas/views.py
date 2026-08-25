@@ -16,7 +16,7 @@ from django.db import IntegrityError, transaction
 from django.shortcuts import render, redirect
 
 
-from .models import Expediente, ExpedienteDocumento, FacturaCliente, PagoCliente, FacturaProveedor, PagoProveedor
+from .models import Expediente, ExpedienteDocumento, FacturaCliente, PagoCliente, FacturaProveedor, PagoProveedor, PresupuestoAnual
 from .validators import validar_rfc
 
 
@@ -2043,4 +2043,26 @@ def pago_proveedor_eliminar(request, pk):
         request,
         "finanzas/cxp/pago_eliminar.html",
         {"pago": pago, "factura": factura}
+    )
+
+
+@never_cache
+@login_required
+def presupuestos_lista(request):
+    """
+    Lista los presupuestos anuales registrados.
+    """
+
+    presupuestos = (
+        PresupuestoAnual.objects
+        .all()
+        .order_by("-ejercicio")
+    )
+
+    return render(
+        request,
+        "finanzas/presupuestos/lista.html",
+        {
+            "presupuestos": presupuestos,
+        }
     )

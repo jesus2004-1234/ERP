@@ -27,4 +27,5 @@ urlpatterns = [
     path("cxp/<int:pk>/registrar_pago/", views.registrar_proveedor_pago, name="registrar_proveedor_pago"),
     path("cxp/<int:pk>/pago_editar/", views.pago_proveedor_editar, name="pago_proveedor_editar"),
     path("cxp/<int:pk>/pago_eliminar/", views.pago_proveedor_eliminar, name="pago_proveedor_eliminar"),
+    path("presupuesto/", views.presupuestos_lista, name="presupuestos_lista"),
 ]
