@@ -2066,3 +2066,33 @@ def presupuestos_lista(request):
             "presupuestos": presupuestos,
         }
     )
+
+@never_cache
+@login_required
+def presupuesto_crear(request):
+
+    if request.method == "POST":
+        ejercicio = request.POST.get("ejercicio")
+        nombre = request.POST.get("nombre")
+        estatus = request.POST.get("estatus")
+        observaciones = request.POST.get("observaciones")
+
+        if not ejercicio or not nombre:
+            messages.error(request, "El ejercicio y el nombre son obligatorios.")
+            return render(request, "finanzas/presupuestos/crear.html")
+
+        if PresupuestoAnual.objects.filter(ejercicio=ejercicio).exists():
+            messages.error(request, f"Ya existe un presupuesto para el ejercicio {ejercicio}.")
+            return render(request, "finanzas/presupuestos/crear.html")
+
+        presupuesto = PresupuestoAnual.objects.create(
+            ejercicio=ejercicio,
+            nombre=nombre,
+            estatus=estatus or PresupuestoAnual.Estatus.BORRADOR,
+            observaciones=observaciones,
+        )
+
+        messages.success(request, "El presupuesto se creo correctamente.")
+        return redirect("finanzas/presupuestos_lista")
+    
+    return render(request, "finanzas/presupuestos/crear.html")
