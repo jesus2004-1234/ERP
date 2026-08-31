@@ -1,0 +1,218 @@
+{% extends 'finanzas/base_finanzas.html' %}
+{% load humanize %}
+
+{% block title %}Distribución mensual — {{ presupuesto_gasto.partida.nombre }}{% endblock %}
+{% block page_title %}Distribución Mensual de Gasto{% endblock %}
+
+{% block content %}
+
+<!-- ===================================================== -->
+<!-- ENCABEZADO -->
+<!-- ===================================================== -->
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div>
+
+        <h4 class="mb-1">
+            {{ presupuesto_gasto.partida.nombre }}
+        </h4>
+
+        <p class="text-muted mb-0">
+            Presupuesto {{ presupuesto_gasto.presupuesto.ejercicio }} —
+            {{ presupuesto_gasto.presupuesto.nombre }}
+        </p>
+
+    </div>
+
+    <div>
+
+        <a href="{% url 'presupuesto_detalle' presupuesto_gasto.presupuesto.pk %}"
+           class="btn btn-outline-secondary">
+
+            <i class="bi bi-arrow-left me-1"></i>
+            Regresar
+
+        </a>
+
+    </div>
+
+</div>
+
+
+<!-- ===================================================== -->
+<!-- RESUMEN -->
+<!-- ===================================================== -->
+
+<div class="row g-3 mb-4">
+
+    <!-- MONTO ANUAL -->
+
+    <div class="col-md-4">
+
+        <div class="card shadow-sm border-0 h-100">
+
+            <div class="card-body">
+
+                <div class="text-muted small">
+                    Monto anual presupuestado
+                </div>
+
+                <h3 class="mb-0">
+                    ${{ presupuesto_gasto.monto_anual|floatformat:2|intcomma }}
+                </h3>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- TOTAL DISTRIBUIDO -->
+
+    <div class="col-md-4">
+
+        <div class="card shadow-sm border-0 h-100">
+
+            <div class="card-body">
+
+                <div class="text-muted small">
+                    Total distribuido
+                </div>
+
+                <h3 class="mb-0">
+                    ${{ total_distribuido|floatformat:2|intcomma }}
+                </h3>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- DIFERENCIA -->
+
+    <div class="col-md-4">
+
+        <div class="card shadow-sm border-0 h-100">
+
+            <div class="card-body">
+
+                <div class="text-muted small">
+                    Diferencia
+                </div>
+
+                <h3 class="mb-0 {% if presupuesto_gasto.monto_anual == total_distribuido %}text-success{% else %}text-danger{% endif %}">
+                    ${{ diferencia|floatformat:2|intcomma }}
+                </h3>
+
+                {% if presupuesto_gasto.monto_anual == total_distribuido %}
+                    <small class="text-success">
+                        <i class="bi bi-check-circle me-1"></i>
+                        Cuadra con el monto anual
+                    </small>
+                {% else %}
+                    <small class="text-danger">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        Debe coincidir con el monto anual
+                    </small>
+                {% endif %}
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ===================================================== -->
+<!-- FORMULARIO DE DISTRIBUCIÓN MENSUAL -->
+<!-- ===================================================== -->
+
+<form method="post"
+      action="{% url 'gasto_mensual' presupuesto_gasto.pk %}">
+
+    {% csrf_token %}
+
+    <div class="card shadow-sm border-0 mb-4">
+
+        <div class="card-header bg-white">
+
+            <h5 class="mb-0">
+
+                <i class="bi bi-calendar3 me-2"></i>
+                Montos por mes
+
+            </h5>
+
+            <small class="text-muted">
+                La suma de los 12 meses debe coincidir exactamente con el
+                monto anual presupuestado.
+            </small>
+
+        </div>
+
+        <div class="card-body">
+
+            <div class="row g-3">
+
+                {% for mes in meses %}
+
+                <div class="col-md-3 col-sm-4 col-6">
+
+                    <label for="mes_{{ mes.numero }}" class="form-label small text-muted mb-1">
+                        {{ mes.nombre }}
+                    </label>
+
+                    <div class="input-group input-group-sm">
+
+                        <span class="input-group-text">$</span>
+
+                        <input type="number"
+                               step="0.01"
+                               min="0"
+                               class="form-control text-end"
+                               id="mes_{{ mes.numero }}"
+                               name="mes_{{ mes.numero }}"
+                               value="{{ mes.monto|stringformat:'.2f' }}">
+
+                    </div>
+
+                </div>
+
+                {% endfor %}
+
+            </div>
+
+        </div>
+
+        <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+
+            <small class="text-muted">
+                <i class="bi bi-info-circle me-1"></i>
+                Monto anual objetivo: ${{ presupuesto_gasto.monto_anual|floatformat:2|intcomma }}
+            </small>
+
+            <div>
+
+                <a href="{% url 'presupuesto_detalle' presupuesto_gasto.presupuesto.pk %}"
+                   class="btn btn-outline-secondary me-2">
+                    Cancelar
+                </a>
+
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-circle me-1"></i>
+                    Guardar distribución
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</form>
+
+{% endblock %}

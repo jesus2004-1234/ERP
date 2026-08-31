@@ -4,6 +4,7 @@ from django.db import models
 from django.utils import timezone
 from django.db import models, transaction
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 
 
 class Expediente(models.Model):
@@ -526,12 +527,17 @@ class PresupuestoAnual(models.Model):
 
     ejercicio = models.PositiveIntegerField(unique=True, verbose_name="Ejercicio")
     nombre = models.CharField(max_length=150, verbose_name="Nombre")
-    estatus = models.CharField(max_length=20, verbose_name="Estatus")
+    estatus = models.CharField(
+        max_length=20,
+        choices=Estatus.choices,
+        default=Estatus.BORRADOR,
+        verbose_name="Estatus",
+    )
     observaciones = models.TextField(blank=True, verbose_name="Observaciones")
     fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creacion")
     fecha_actualizacion = models.DateTimeField(auto_now=True, verbose_name="Ultima actualizacion")
 
-    class Meta: 
+    class Meta:
         verbose_name = "Presupuesto anual"
         verbose_name_plural = "Presupuestos anuales"
         ordering = ["-ejercicio"]
@@ -539,12 +545,12 @@ class PresupuestoAnual(models.Model):
     def __str__(self):
         return self.nombre
 
+
 class ConceptoIngreso(models.Model):
     codigo = models.CharField(max_length=20, unique=True, verbose_name="Codigo")
     nombre = models.CharField(max_length=150, verbose_name="Nombre")
     descripcion = models.TextField(blank=True, verbose_name="Descripcion")
     activo = models.BooleanField(default=True, verbose_name="Activo")
-
 
     class Meta:
         verbose_name = "Concepto de ingreso"
@@ -554,11 +560,19 @@ class ConceptoIngreso(models.Model):
     def __str__(self):
         return f"{self.codigo} - {self.nombre}"
 
+
 class PartidaGasto(models.Model):
     codigo = models.CharField(max_length=20, unique=True, verbose_name="Codigo")
     nombre = models.CharField(max_length=150, verbose_name="Nombre")
     descripcion = models.TextField(blank=True, verbose_name="Descripcion")
-    partida_padre = models.ForeignKey("self", on_delete=models.PROTECT, null=True, blank=True, related_name="subpartidas", verbose_name="Partida padre")
+    partida_padre = models.ForeignKey(
+        "self",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="subpartidas",
+        verbose_name="Partida padre",
+    )
     activo = models.BooleanField(default=True, verbose_name="Activo")
 
     class Meta:
@@ -571,8 +585,12 @@ class PartidaGasto(models.Model):
 
 
 class PresupuestoIngreso(models.Model):
-    presupuesto = models.ForeignKey(PresupuestoAnual, on_delete=models.CASCADE, related_name="ingresos", verbose_name="Presupuesto")
-    concepto = models.ForeignKey(ConceptoIngreso, on_delete=models.PROTECT, related_name="presupuesto", verbose_name="Concepto de ingresos")
+    presupuesto = models.ForeignKey(
+        PresupuestoAnual, on_delete=models.CASCADE, related_name="ingresos", verbose_name="Presupuesto"
+    )
+    concepto = models.ForeignKey(
+        ConceptoIngreso, on_delete=models.PROTECT, related_name="presupuesto", verbose_name="Concepto de ingresos"
+    )
     monto_anual = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name="Monto anual")
 
     class Meta:
@@ -581,8 +599,8 @@ class PresupuestoIngreso(models.Model):
 
         constraints = [
             models.UniqueConstraint(
-                fields = ["presupuesto", "concepto"],
-                name = "unique_presupuesto_concepto_ingreso"
+                fields=["presupuesto", "concepto"],
+                name="unique_presupuesto_concepto_ingreso"
             )
         ]
 
@@ -591,8 +609,12 @@ class PresupuestoIngreso(models.Model):
 
 
 class PresupuestoGasto(models.Model):
-    presupuesto = models.ForeignKey(PresupuestoAnual, on_delete=models.CASCADE, related_name="gastos", verbose_name="Presupuesto")
-    partida = models.ForeignKey(PartidaGasto, on_delete=models.PROTECT, related_name="presupuestos", verbose_name="Partida de gastos")
+    presupuesto = models.ForeignKey(
+        PresupuestoAnual, on_delete=models.CASCADE, related_name="gastos", verbose_name="Presupuesto"
+    )
+    partida = models.ForeignKey(
+        PartidaGasto, on_delete=models.PROTECT, related_name="presupuestos", verbose_name="Partida de gastos"
+    )
     monto_anual = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name="Monto anual")
 
     class Meta:
@@ -602,17 +624,22 @@ class PresupuestoGasto(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["presupuesto", "partida"],
-                name = "unique_presupuesto_partida_gasto"
+                name="unique_presupuesto_partida_gasto"
             )
         ]
 
     def __str__(self):
         return f"{self.presupuesto} - {self.partida}"
 
-    
+
 class PresupuestoIngresoMensual(models.Model):
-    presupuesto_ingreso = models.ForeignKey(PresupuestoIngreso, on_delete=models.CASCADE, related_name="mensualidades", verbose_name="Presupuesto de ingreso")
-    mes = models.PositiveSmallIntegerField(verbose_name="Mes")
+    presupuesto_ingreso = models.ForeignKey(
+        PresupuestoIngreso, on_delete=models.CASCADE, related_name="mensualidades", verbose_name="Presupuesto de ingreso"
+    )
+    mes = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(12)],
+        verbose_name="Mes",
+    )
     monto = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name="Monto")
 
     class Meta:
@@ -622,16 +649,24 @@ class PresupuestoIngresoMensual(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["presupuesto_ingreso", "mes"],
-                name = "unique_presupuesto_ingreso_mes"
+                name="unique_presupuesto_ingreso_mes"
             )
         ]
 
         ordering = ["mes"]
 
+    def __str__(self):
+        return f"{self.presupuesto_ingreso} - Mes {self.mes}: ${self.monto}"
+
 
 class PresupuestoGastoMensual(models.Model):
-    presupuesto_gasto = models.ForeignKey(PresupuestoGasto, on_delete=models.CASCADE, related_name="mensualidades", verbose_name="Presupuesto de gasto")
-    mes = models.PositiveSmallIntegerField(verbose_name="Mes")
+    presupuesto_gasto = models.ForeignKey(
+        PresupuestoGasto, on_delete=models.CASCADE, related_name="mensualidades", verbose_name="Presupuesto de gasto"
+    )
+    mes = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(12)],
+        verbose_name="Mes",
+    )
     monto = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name="Monto")
 
     class Meta:
@@ -641,8 +676,11 @@ class PresupuestoGastoMensual(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["presupuesto_gasto", "mes"],
-                name = "unique_presupuesto_gasto_mes"
+                name="unique_presupuesto_gasto_mes"
             )
         ]
 
         ordering = ["mes"]
+
+    def __str__(self):
+        return f"{self.presupuesto_gasto} - Mes {self.mes}: ${self.monto}"

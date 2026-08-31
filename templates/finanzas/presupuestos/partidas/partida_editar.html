@@ -1,0 +1,99 @@
+{% extends 'finanzas/base_finanzas.html' %}
+
+{% block title %}Editar Partida de Gasto{% endblock %}
+{% block page_title %}Editar Partida de Gasto{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+
+    <div class="col-lg-8">
+
+        <div class="card shadow-sm border-0">
+
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0">
+                    <i class="bi bi-tag me-2"></i>
+                    Editar partida
+                </h5>
+            </div>
+
+            <div class="card-body">
+
+                <form method="post">
+
+                    {% csrf_token %}
+
+                    <div class="row">
+
+                        <div class="col-md-4 mb-3">
+                            <label for="codigo" class="form-label">Código</label>
+                            <input type="text" name="codigo" id="codigo" class="form-control"
+                                   maxlength="20"
+                                   value="{{ request.POST.codigo|default:partida.codigo }}" required>
+                        </div>
+
+                        <div class="col-md-8 mb-3">
+                            <label for="nombre" class="form-label">Nombre</label>
+                            <input type="text" name="nombre" id="nombre" class="form-control"
+                                   maxlength="150"
+                                   value="{{ request.POST.nombre|default:partida.nombre }}" required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="partida_padre" class="form-label">Partida padre</label>
+                            <select name="partida_padre" id="partida_padre" class="form-select">
+                                <option value="">Sin partida padre (partida raíz)</option>
+                                {% for p in partidas_disponibles %}
+                                    <option value="{{ p.pk }}"
+                                        {% if request.POST.partida_padre == p.pk|stringformat:"s" or not request.POST and partida.partida_padre_id == p.pk %}selected{% endif %}>
+                                        {{ p.codigo }} - {{ p.nombre }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">
+                                No puede ser ella misma. Solo se listan partidas activas.
+                            </div>
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <label for="descripcion" class="form-label">Descripción</label>
+                            <textarea name="descripcion" id="descripcion" class="form-control"
+                                      rows="3">{{ request.POST.descripcion|default:partida.descripcion }}</textarea>
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" name="activo" id="activo" class="form-check-input"
+                                       {% if request.POST.activo or not request.POST and partida.activo %}checked{% endif %}>
+                                <label class="form-check-label" for="activo">Activa</label>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-3">
+
+                        <a href="{% url 'partidas_lista' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>
+                            Cancelar
+                        </a>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>
+                            Guardar cambios
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

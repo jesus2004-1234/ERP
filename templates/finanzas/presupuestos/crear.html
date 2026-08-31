@@ -42,7 +42,7 @@
                                    class="form-control"
                                    min="2000"
                                    max="2100"
-                                   value="{{ presupuesto.ejercicio|default:'' }}"
+                                   value="{{ request.POST.ejercicio|default:'' }}"
                                    required>
 
                         </div>
@@ -60,7 +60,7 @@
                                    id="nombre"
                                    class="form-control"
                                    maxlength="150"
-                                   value="{{ presupuesto.nombre|default:'' }}"
+                                   value="{{ request.POST.nombre|default:'' }}"
                                    placeholder="Ej. Presupuesto Anual 2026"
                                    required>
 
@@ -79,26 +79,16 @@
                                     class="form-select"
                                     required>
 
-                                <option value="Borrador"
-                                    {% if presupuesto.estatus == "Borrador" or not presupuesto %}
-                                        selected
-                                    {% endif %}>
-                                    Borrador
-                                </option>
+                                {% for valor, texto in estatuses %}
 
-                                <option value="Activo"
-                                    {% if presupuesto.estatus == "Activo" %}
-                                        selected
-                                    {% endif %}>
-                                    Activo
-                                </option>
+                                    <option value="{{ valor }}"
+                                        {% if request.POST.estatus == valor or not request.POST and valor == "Borrador" %}
+                                            selected
+                                        {% endif %}>
+                                        {{ texto }}
+                                    </option>
 
-                                <option value="Cerrado"
-                                    {% if presupuesto.estatus == "Cerrado" %}
-                                        selected
-                                    {% endif %}>
-                                    Cerrado
-                                </option>
+                                {% endfor %}
 
                             </select>
 
@@ -116,7 +106,7 @@
                                       id="observaciones"
                                       class="form-control"
                                       rows="4"
-                                      placeholder="Observaciones del presupuesto...">{{ presupuesto.observaciones|default:'' }}</textarea>
+                                      placeholder="Observaciones del presupuesto...">{{ request.POST.observaciones|default:'' }}</textarea>
 
                         </div>
 
@@ -125,7 +115,7 @@
 
                     <div class="d-flex justify-content-between mt-3">
 
-                        <a href="{% url 'presupuesto_lista' %}"
+                        <a href="{% url 'presupuestos_lista' %}"
                            class="btn btn-outline-secondary">
 
                             <i class="bi bi-arrow-left me-1"></i>

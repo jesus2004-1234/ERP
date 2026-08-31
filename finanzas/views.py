@@ -8,7 +8,7 @@ from django.core.paginator import Paginator
 from django.db import models
 from django.db.models import Case, DecimalField, ExpressionWrapper, F, Q, Sum, Value, When
 from django.db.models.functions import Coalesce
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
@@ -16,7 +16,7 @@ from django.db import IntegrityError, transaction
 from django.shortcuts import render, redirect
 
 
-from .models import Expediente, ExpedienteDocumento, FacturaCliente, PagoCliente, FacturaProveedor, PagoProveedor, PresupuestoAnual
+from .models import Expediente, ExpedienteDocumento, FacturaCliente, PagoCliente, FacturaProveedor, PagoProveedor, PresupuestoAnual, PresupuestoIngreso, ConceptoIngreso, PresupuestoGasto, PartidaGasto, PresupuestoIngresoMensual, PresupuestoGastoMensual
 from .validators import validar_rfc
 
 
@@ -2067,32 +2067,1037 @@ def presupuestos_lista(request):
         }
     )
 
+
+# =====================================================
+# CREAR PRESUPUESTO
+# =====================================================
+
 @never_cache
 @login_required
 def presupuesto_crear(request):
 
-    if request.method == "POST":
-        ejercicio = request.POST.get("ejercicio")
-        nombre = request.POST.get("nombre")
-        estatus = request.POST.get("estatus")
-        observaciones = request.POST.get("observaciones")
+    contexto_base = {
+        "estatuses": PresupuestoAnual.Estatus.choices,
+    }
 
-        if not ejercicio or not nombre:
-            messages.error(request, "El ejercicio y el nombre son obligatorios.")
-            return render(request, "finanzas/presupuestos/crear.html")
+    if request.method == "POST":
+
+        nombre = (request.POST.get("nombre") or "").strip()
+        observaciones = request.POST.get("observaciones", "")
+
+        # --- Ejercicio: requerido, entero válido y mayor a cero ---
+        try:
+            ejercicio = int(request.POST.get("ejercicio") or 0)
+        except ValueError:
+            messages.error(request, "El ejercicio debe ser un número válido.")
+            return render(request, "finanzas/presupuestos/crear.html", contexto_base)
+
+        if ejercicio <= 0:
+            messages.error(request, "Debe especificar un ejercicio (año) válido.")
+            return render(request, "finanzas/presupuestos/crear.html", contexto_base)
+
+        if not nombre:
+            messages.error(request, "El nombre del presupuesto es obligatorio.")
+            return render(request, "finanzas/presupuestos/crear.html", contexto_base)
 
         if PresupuestoAnual.objects.filter(ejercicio=ejercicio).exists():
             messages.error(request, f"Ya existe un presupuesto para el ejercicio {ejercicio}.")
-            return render(request, "finanzas/presupuestos/crear.html")
+            return render(request, "finanzas/presupuestos/crear.html", contexto_base)
+
+        # --- Estatus: validado contra los choices reales, igual que en CxC/CxP ---
+        estatus = request.POST.get("estatus") or PresupuestoAnual.Estatus.BORRADOR
+        if estatus not in PresupuestoAnual.Estatus.values:
+            messages.error(request, "Estatus no válido.")
+            return render(request, "finanzas/presupuestos/crear.html", contexto_base)
 
         presupuesto = PresupuestoAnual.objects.create(
             ejercicio=ejercicio,
             nombre=nombre,
-            estatus=estatus or PresupuestoAnual.Estatus.BORRADOR,
+            estatus=estatus,
             observaciones=observaciones,
         )
 
-        messages.success(request, "El presupuesto se creo correctamente.")
-        return redirect("finanzas/presupuestos_lista")
-    
-    return render(request, "finanzas/presupuestos/crear.html")
+        messages.success(request, "El presupuesto se creó correctamente.")
+        return redirect("presupuestos_lista")
+
+    return render(request, "finanzas/presupuestos/crear.html", contexto_base)
+
+
+# =====================================================
+# DETALLE DE PRESUPUESTO
+# =====================================================
+
+@never_cache
+@login_required
+def presupuesto_detalle(request, pk):
+
+    presupuesto = get_object_or_404(PresupuestoAnual, pk=pk)
+
+    ingresos = presupuesto.ingresos.select_related("concepto").all()
+    gastos = presupuesto.gastos.select_related("partida").all()
+
+    total_ingresos = sum((ingreso.monto_anual for ingreso in ingresos), Decimal("0.00"))
+    total_gastos = sum((gasto.monto_anual for gasto in gastos), Decimal("0.00"))
+    resultado_presupuestario = total_ingresos - total_gastos
+
+    return render(
+        request,
+        "finanzas/presupuestos/detalle.html",
+        {
+            "presupuesto": presupuesto,
+            "ingresos": ingresos,
+            "gastos": gastos,
+            "total_ingresos": total_ingresos,
+            "total_gastos": total_gastos,
+            "resultado_presupuestario": resultado_presupuestario,
+        }
+    )
+
+# =====================================================
+# AGREGAR INGRESO AL PRESUPUESTO
+# =====================================================
+
+@never_cache
+@login_required
+def ingreso_crear(request, pk):
+
+    presupuesto = get_object_or_404(
+        PresupuestoAnual,
+        pk=pk
+    )
+
+    conceptos = ConceptoIngreso.objects.filter(
+        activo=True
+    ).order_by("codigo")
+
+    contexto_base = {
+        "presupuesto": presupuesto,
+        "conceptos": conceptos,
+    }
+
+    if request.method == "POST":
+
+        concepto_id = request.POST.get("concepto")
+
+        if not concepto_id:
+            messages.error(
+                request,
+                "Debe seleccionar un concepto de ingreso."
+            )
+            return render(
+                request,
+                "finanzas/presupuestos/ingreso_crear.html",
+                contexto_base
+            )
+
+        concepto = get_object_or_404(
+            ConceptoIngreso,
+            pk=concepto_id,
+            activo=True
+        )
+
+        if PresupuestoIngreso.objects.filter(
+            presupuesto=presupuesto,
+            concepto=concepto,
+        ).exists():
+
+            messages.error(
+                request,
+                "Este concepto ya está registrado en el presupuesto."
+            )
+
+            return render(
+                request,
+                "finanzas/presupuestos/ingreso_crear.html",
+                contexto_base
+            )
+
+        try:
+            monto_anual = Decimal(
+                request.POST.get("monto_anual") or "0"
+            )
+        except InvalidOperation:
+
+            messages.error(
+                request,
+                "El monto anual debe ser un número válido."
+            )
+
+            return render(
+                request,
+                "finanzas/presupuestos/ingreso_crear.html",
+                contexto_base
+            )
+
+        if monto_anual <= 0:
+
+            messages.error(
+                request,
+                "El monto anual debe ser mayor a cero."
+            )
+
+            return render(
+                request,
+                "finanzas/presupuestos/ingreso_crear.html",
+                contexto_base
+            )
+
+        PresupuestoIngreso.objects.create(
+            presupuesto=presupuesto,
+            concepto=concepto,
+            monto_anual=monto_anual,
+        )
+
+        messages.success(
+            request,
+            "El ingreso fue agregado correctamente."
+        )
+
+        return redirect(
+            "presupuesto_detalle",
+            pk=presupuesto.pk
+        )
+
+    return render(
+        request,
+        "finanzas/presupuestos/ingreso_crear.html",
+        contexto_base
+    )
+
+
+    # =====================================================
+# AGREGAR GASTO AL PRESUPUESTO
+# =====================================================
+
+@never_cache
+@login_required
+def gasto_crear(request, pk):
+
+    presupuesto = get_object_or_404(
+        PresupuestoAnual,
+        pk=pk
+    )
+
+    contexto_base = {
+        "presupuesto": presupuesto,
+    }
+
+    if request.method == "POST":
+
+        partida_id = request.POST.get("partida")
+
+        if not partida_id:
+            messages.error(request, "Debe seleccionar una partida de gasto.")
+            return render(request, "finanzas/presupuestos/gasto_crear.html", contexto_base)
+
+        # Valida existencia y estatus activo antes de llegar al create(),
+        # evitando un IntegrityError de FK inválida sin capturar.
+        partida = get_object_or_404(PartidaGasto, pk=partida_id, activo=True)
+
+        if PresupuestoGasto.objects.filter(
+            presupuesto=presupuesto,
+            partida=partida,
+        ).exists():
+            messages.error(
+                request,
+                "Esta partida ya está registrada en el presupuesto."
+            )
+            return render(request, "finanzas/presupuestos/gasto_crear.html", contexto_base)
+
+        try:
+            monto_anual = Decimal(request.POST.get("monto_anual") or "0")
+        except InvalidOperation:
+            messages.error(request, "El monto anual debe ser un número válido.")
+            return render(request, "finanzas/presupuestos/gasto_crear.html", contexto_base)
+
+        if monto_anual <= 0:
+            messages.error(request, "El monto anual debe ser mayor a cero.")
+            return render(request, "finanzas/presupuestos/gasto_crear.html", contexto_base)
+
+        PresupuestoGasto.objects.create(
+            presupuesto=presupuesto,
+            partida=partida,
+            monto_anual=monto_anual,
+        )
+
+        messages.success(request, "El gasto fue agregado correctamente.")
+
+        return redirect("presupuesto_detalle", pk=presupuesto.pk)
+
+    partidas = PartidaGasto.objects.filter(
+        activo=True,
+        subpartidas__isnull=True,  # solo partidas hoja, sin subpartidas
+    ).order_by("codigo")
+
+    contexto_base = {
+        "presupuesto": presupuesto,
+        "partidas": partidas,
+    }
+
+    return render(request, "finanzas/presupuestos/gasto_crear.html", contexto_base)
+
+
+# =====================================================
+# DISTRIBUCIÓN MENSUAL DE INGRESO
+# =====================================================
+
+@never_cache
+@login_required
+def ingreso_mensual(request, pk):
+
+    presupuesto_ingreso = get_object_or_404(
+        PresupuestoIngreso.objects.select_related(
+            "presupuesto",
+            "concepto",
+        ),
+        pk=pk,
+    )
+
+    meses = [
+        (1, "Enero"), (2, "Febrero"), (3, "Marzo"), (4, "Abril"),
+        (5, "Mayo"), (6, "Junio"), (7, "Julio"), (8, "Agosto"),
+        (9, "Septiembre"), (10, "Octubre"), (11, "Noviembre"), (12, "Diciembre"),
+    ]
+
+    for numero, nombre in meses:
+        PresupuestoIngresoMensual.objects.get_or_create(
+            presupuesto_ingreso=presupuesto_ingreso,
+            mes=numero,
+            defaults={"monto": Decimal("0.00")}
+        )
+
+    mensualidades = (
+        presupuesto_ingreso.mensualidades
+        .all()
+        .order_by("mes")
+    )
+
+    mensualidades_por_mes = {m.mes: m for m in mensualidades}
+    meses_formulario = [
+        {
+            "numero": numero,
+            "nombre": nombre,
+            "monto": mensualidades_por_mes[numero].monto,
+        }
+        for numero, nombre in meses
+    ]
+
+    if request.method == "POST":
+
+        valores = {}
+
+        try:
+            for numero, nombre in meses:
+                valor = request.POST.get(f"mes_{numero}", "0")
+                valor = Decimal(valor or "0")
+                if valor < 0:
+                    raise InvalidOperation
+                valores[numero] = valor
+
+        except (InvalidOperation, ValueError):
+            messages.error(request, "Los montos mensuales deben ser números válidos.")
+            return render(
+                request,
+                "finanzas/presupuestos/ingreso_mensual.html",
+                {
+                    "presupuesto_ingreso": presupuesto_ingreso,
+                    "mensualidades": mensualidades,
+                    "meses": meses_formulario,
+                    "total_distribuido": sum(valores.values(), Decimal("0.00")) if valores else Decimal("0.00"),
+                    "diferencia": presupuesto_ingreso.monto_anual - (sum(valores.values(), Decimal("0.00")) if valores else Decimal("0.00")),
+                }
+            )
+
+        total_distribuido = sum(valores.values(), Decimal("0.00"))
+
+        if total_distribuido != presupuesto_ingreso.monto_anual:
+            messages.error(
+                request,
+                (
+                    "La distribución mensual debe coincidir exactamente con el monto anual de "
+                    f"${presupuesto_ingreso.monto_anual:,.2f}."
+                )
+            )
+            return render(
+                request,
+                "finanzas/presupuestos/ingreso_mensual.html",
+                {
+                    "presupuesto_ingreso": presupuesto_ingreso,
+                    "mensualidades": mensualidades,
+                    "meses": meses_formulario,
+                    "total_distribuido": total_distribuido,
+                    "diferencia": presupuesto_ingreso.monto_anual - total_distribuido,
+                }
+            )
+
+        for numero, monto in valores.items():
+            PresupuestoIngresoMensual.objects.update_or_create(
+                presupuesto_ingreso=presupuesto_ingreso,
+                mes=numero,
+                defaults={"monto": monto}
+            )
+
+        messages.success(request, "La distribución mensual del ingreso se guardó correctamente.")
+        return redirect("presupuesto_detalle", pk=presupuesto_ingreso.presupuesto.pk)
+
+    total_distribuido = sum((m.monto for m in mensualidades), Decimal("0.00"))
+
+    return render(
+        request,
+        "finanzas/presupuestos/ingreso_mensual.html",
+        {
+            "presupuesto_ingreso": presupuesto_ingreso,
+            "mensualidades": mensualidades,
+            "meses": meses_formulario,
+            "total_distribuido": total_distribuido,
+            "diferencia": presupuesto_ingreso.monto_anual - total_distribuido,
+        }
+    )
+
+# =====================================================
+# DISTRIBUCIÓN MENSUAL DE GASTO
+# =====================================================
+
+@never_cache
+@login_required
+def gasto_mensual(request, pk):
+
+    presupuesto_gasto = get_object_or_404(
+        PresupuestoGasto.objects.select_related(
+            "presupuesto",
+            "partida",
+        ),
+        pk=pk,
+    )
+
+    meses = [
+        (1, "Enero"), (2, "Febrero"), (3, "Marzo"), (4, "Abril"),
+        (5, "Mayo"), (6, "Junio"), (7, "Julio"), (8, "Agosto"),
+        (9, "Septiembre"), (10, "Octubre"), (11, "Noviembre"), (12, "Diciembre"),
+    ]
+
+    for numero, nombre in meses:
+        PresupuestoGastoMensual.objects.get_or_create(
+            presupuesto_gasto=presupuesto_gasto,
+            mes=numero,
+            defaults={"monto": Decimal("0.00")}
+        )
+
+    mensualidades = (
+        presupuesto_gasto.mensualidades
+        .all()
+        .order_by("mes")
+    )
+
+    mensualidades_por_mes = {m.mes: m for m in mensualidades}
+    meses_formulario = [
+        {
+            "numero": numero,
+            "nombre": nombre,
+            "monto": mensualidades_por_mes[numero].monto,
+        }
+        for numero, nombre in meses
+    ]
+
+    if request.method == "POST":
+
+        valores = {}
+
+        try:
+            for numero, nombre in meses:
+                valor = request.POST.get(f"mes_{numero}", "0")
+                valor = Decimal(valor or "0")
+                if valor < 0:
+                    raise InvalidOperation
+                valores[numero] = valor
+
+        except (InvalidOperation, ValueError):
+            messages.error(request, "Los montos mensuales deben ser números válidos.")
+            return render(
+                request,
+                "finanzas/presupuestos/gasto_mensual.html",
+                {
+                    "presupuesto_gasto": presupuesto_gasto,
+                    "mensualidades": mensualidades,
+                    "meses": meses_formulario,
+                    "total_distribuido": sum(valores.values(), Decimal("0.00")) if valores else Decimal("0.00"),
+                    "diferencia": presupuesto_gasto.monto_anual - (sum(valores.values(), Decimal("0.00")) if valores else Decimal("0.00")),
+                }
+            )
+
+        total_distribuido = sum(valores.values(), Decimal("0.00"))
+
+        if total_distribuido != presupuesto_gasto.monto_anual:
+            messages.error(
+                request,
+                (
+                    "La distribución mensual debe coincidir exactamente con el monto anual de "
+                    f"${presupuesto_gasto.monto_anual:,.2f}."
+                )
+            )
+            return render(
+                request,
+                "finanzas/presupuestos/gasto_mensual.html",
+                {
+                    "presupuesto_gasto": presupuesto_gasto,
+                    "mensualidades": mensualidades,
+                    "meses": meses_formulario,
+                    "total_distribuido": total_distribuido,
+                    "diferencia": presupuesto_gasto.monto_anual - total_distribuido,
+                }
+            )
+
+        for numero, monto in valores.items():
+            PresupuestoGastoMensual.objects.update_or_create(
+                presupuesto_gasto=presupuesto_gasto,
+                mes=numero,
+                defaults={"monto": monto}
+            )
+
+        messages.success(request, "La distribución mensual del gasto se guardó correctamente.")
+        return redirect("presupuesto_detalle", pk=presupuesto_gasto.presupuesto.pk)
+
+    total_distribuido = sum((m.monto for m in mensualidades), Decimal("0.00"))
+
+    return render(
+        request,
+        "finanzas/presupuestos/gasto_mensual.html",
+        {
+            "presupuesto_gasto": presupuesto_gasto,
+            "mensualidades": mensualidades,
+            "meses": meses_formulario,
+            "total_distribuido": total_distribuido,
+            "diferencia": presupuesto_gasto.monto_anual - total_distribuido,
+        }
+    )
+
+
+@never_cache
+@login_required
+def presupuesto_editar(request, pk):
+
+    presupuesto = get_object_or_404(PresupuestoAnual, pk=pk)
+
+    contexto_base = {
+        "presupuesto": presupuesto,
+        "estatuses": PresupuestoAnual.Estatus.choices,
+    }
+
+    if request.method == "POST":
+
+        nombre = (request.POST.get("nombre") or "").strip()
+        observaciones = request.POST.get("observaciones", "")
+
+        try:
+            ejercicio = int(request.POST.get("ejercicio") or 0)
+        except ValueError:
+            messages.error(request, "El ejercicio debe ser un número válido.")
+            return render(request, "finanzas/presupuestos/editar.html", contexto_base)
+
+        if ejercicio <= 0:
+            messages.error(request, "Debe especificar un ejercicio (año) válido.")
+            return render(request, "finanzas/presupuestos/editar.html", contexto_base)
+
+        if not nombre:
+            messages.error(request, "El nombre del presupuesto es obligatorio.")
+            return render(request, "finanzas/presupuestos/editar.html", contexto_base)
+
+        if PresupuestoAnual.objects.filter(ejercicio=ejercicio).exclude(pk=pk).exists():
+            messages.error(request, f"Ya existe otro presupuesto para el ejercicio {ejercicio}.")
+            return render(request, "finanzas/presupuestos/editar.html", contexto_base)
+
+        estatus = request.POST.get("estatus") or PresupuestoAnual.Estatus.BORRADOR
+        if estatus not in PresupuestoAnual.Estatus.values:
+            messages.error(request, "Estatus no válido.")
+            return render(request, "finanzas/presupuestos/editar.html", contexto_base)
+
+        presupuesto.ejercicio = ejercicio
+        presupuesto.nombre = nombre
+        presupuesto.estatus = estatus
+        presupuesto.observaciones = observaciones
+        presupuesto.save()
+
+        messages.success(request, "El presupuesto se actualizó correctamente.")
+        return redirect("presupuesto_detalle", pk=presupuesto.pk)
+
+    return render(request, "finanzas/presupuestos/editar.html", contexto_base)
+
+
+# =====================================================
+# ELIMINAR PRESUPUESTO
+# =====================================================
+
+@never_cache
+@login_required
+def presupuesto_eliminar(request, pk):
+
+    presupuesto = get_object_or_404(PresupuestoAnual, pk=pk)
+
+    total_ingresos = presupuesto.ingresos.count()
+    total_gastos = presupuesto.gastos.count()
+
+    if request.method == "POST":
+        presupuesto.delete()
+        messages.success(request, "Presupuesto eliminado correctamente.")
+        return redirect("presupuestos_lista")
+
+    return render(
+        request,
+        "finanzas/presupuestos/eliminar.html",
+        {
+            "presupuesto": presupuesto,
+            "total_ingresos": total_ingresos,
+            "total_gastos": total_gastos,
+        }
+    )
+
+
+@never_cache
+@login_required
+def ingreso_editar(request, pk):
+
+    presupuesto_ingreso = get_object_or_404(
+        PresupuestoIngreso.objects.select_related("presupuesto", "concepto"),
+        pk=pk
+    )
+
+    if request.method == "POST":
+
+        try:
+            monto_anual = Decimal(request.POST.get("monto_anual") or "0")
+        except InvalidOperation:
+            messages.error(request, "El monto anual debe ser un número válido.")
+            return render(
+                request,
+                "finanzas/presupuestos/ingreso_editar.html",
+                {"presupuesto_ingreso": presupuesto_ingreso}
+            )
+
+        if monto_anual <= 0:
+            messages.error(request, "El monto anual debe ser mayor a cero.")
+            return render(
+                request,
+                "finanzas/presupuestos/ingreso_editar.html",
+                {"presupuesto_ingreso": presupuesto_ingreso}
+            )
+
+        monto_anterior = presupuesto_ingreso.monto_anual
+        presupuesto_ingreso.monto_anual = monto_anual
+        presupuesto_ingreso.save()
+
+        if monto_anual != monto_anterior:
+            messages.warning(
+                request,
+                "El monto anual cambió — recuerda actualizar la distribución "
+                "mensual de este ingreso para que siga sumando el nuevo total."
+            )
+
+        messages.success(request, "El ingreso presupuestado se actualizó correctamente.")
+        return redirect("presupuesto_detalle", pk=presupuesto_ingreso.presupuesto.pk)
+
+    return render(
+        request,
+        "finanzas/presupuestos/ingreso_editar.html",
+        {"presupuesto_ingreso": presupuesto_ingreso}
+    )
+
+
+# =====================================================
+# ELIMINAR INGRESO PRESUPUESTADO
+# =====================================================
+
+@never_cache
+@login_required
+def ingreso_eliminar(request, pk):
+
+    presupuesto_ingreso = get_object_or_404(
+        PresupuestoIngreso.objects.select_related("presupuesto", "concepto"),
+        pk=pk
+    )
+    presupuesto_pk = presupuesto_ingreso.presupuesto.pk
+
+    if request.method == "POST":
+        presupuesto_ingreso.delete()
+        messages.success(request, "El ingreso presupuestado fue eliminado.")
+        return redirect("presupuesto_detalle", pk=presupuesto_pk)
+
+    return render(
+        request,
+        "finanzas/presupuestos/ingreso_eliminar.html",
+        {"presupuesto_ingreso": presupuesto_ingreso}
+    )
+
+
+# =====================================================
+# EDITAR GASTO PRESUPUESTADO
+# =====================================================
+
+@never_cache
+@login_required
+def gasto_editar(request, pk):
+
+    presupuesto_gasto = get_object_or_404(
+        PresupuestoGasto.objects.select_related("presupuesto", "partida"),
+        pk=pk
+    )
+
+    if request.method == "POST":
+
+        try:
+            monto_anual = Decimal(request.POST.get("monto_anual") or "0")
+        except InvalidOperation:
+            messages.error(request, "El monto anual debe ser un número válido.")
+            return render(
+                request,
+                "finanzas/presupuestos/gasto_editar.html",
+                {"presupuesto_gasto": presupuesto_gasto}
+            )
+
+        if monto_anual <= 0:
+            messages.error(request, "El monto anual debe ser mayor a cero.")
+            return render(
+                request,
+                "finanzas/presupuestos/gasto_editar.html",
+                {"presupuesto_gasto": presupuesto_gasto}
+            )
+
+        monto_anterior = presupuesto_gasto.monto_anual
+        presupuesto_gasto.monto_anual = monto_anual
+        presupuesto_gasto.save()
+
+        if monto_anual != monto_anterior:
+            messages.warning(
+                request,
+                "El monto anual cambió — recuerda actualizar la distribución "
+                "mensual de este gasto para que siga sumando el nuevo total."
+            )
+
+        messages.success(request, "El gasto presupuestado se actualizó correctamente.")
+        return redirect("presupuesto_detalle", pk=presupuesto_gasto.presupuesto.pk)
+
+    return render(
+        request,
+        "finanzas/presupuestos/gasto_editar.html",
+        {"presupuesto_gasto": presupuesto_gasto}
+    )
+
+
+# =====================================================
+# ELIMINAR GASTO PRESUPUESTADO
+# =====================================================
+
+@never_cache
+@login_required
+def gasto_eliminar(request, pk):
+
+    presupuesto_gasto = get_object_or_404(
+        PresupuestoGasto.objects.select_related("presupuesto", "partida"),
+        pk=pk
+    )
+    presupuesto_pk = presupuesto_gasto.presupuesto.pk
+
+    if request.method == "POST":
+        presupuesto_gasto.delete()
+        messages.success(request, "El gasto presupuestado fue eliminado.")
+        return redirect("presupuesto_detalle", pk=presupuesto_pk)
+
+    return render(
+        request,
+        "finanzas/presupuestos/gasto_eliminar.html",
+        {"presupuesto_gasto": presupuesto_gasto}
+    )
+
+
+# =====================================================
+# CATALOGO: CONCEPTOS DE INGRESO
+# =====================================================
+
+@never_cache
+@login_required
+def conceptos_lista(request):
+
+    busqueda = request.GET.get("q", "")
+
+    conceptos = ConceptoIngreso.objects.all().order_by("codigo")
+
+    if busqueda:
+        conceptos = conceptos.filter(
+            Q(codigo__icontains=busqueda) | Q(nombre__icontains=busqueda)
+        )
+
+    return render(
+        request,
+        "finanzas/presupuestos/conceptos/lista.html",
+        {"conceptos": conceptos, "busqueda": busqueda}
+    )
+
+
+@never_cache
+@login_required
+def concepto_crear(request):
+
+    if request.method == "POST":
+
+        codigo = (request.POST.get("codigo") or "").strip().upper()
+        nombre = (request.POST.get("nombre") or "").strip()
+        descripcion = request.POST.get("descripcion", "")
+        activo = request.POST.get("activo") == "on"
+
+        if not codigo:
+            messages.error(request, "El código es obligatorio.")
+            return render(request, "finanzas/presupuestos/conceptos/concepto_crear.html", {})
+
+        if not nombre:
+            messages.error(request, "El nombre es obligatorio.")
+            return render(request, "finanzas/presupuestos/conceptos/concepto_crear.html", {})
+
+        if ConceptoIngreso.objects.filter(codigo__iexact=codigo).exists():
+            messages.error(request, f"Ya existe un concepto con el código {codigo}.")
+            return render(request, "finanzas/presupuestos/conceptos/concepto_crear.html", {})
+
+        ConceptoIngreso.objects.create(
+            codigo=codigo, nombre=nombre, descripcion=descripcion, activo=activo,
+        )
+
+        messages.success(request, "El concepto de ingreso se creó correctamente.")
+        return redirect("conceptos_lista")
+
+    return render(request, "finanzas/presupuestos/conceptos/concepto_crear.html", {})
+
+
+@never_cache
+@login_required
+def concepto_editar(request, pk):
+
+    concepto = get_object_or_404(ConceptoIngreso, pk=pk)
+
+    if request.method == "POST":
+
+        codigo = (request.POST.get("codigo") or "").strip().upper()
+        nombre = (request.POST.get("nombre") or "").strip()
+        descripcion = request.POST.get("descripcion", "")
+        activo = request.POST.get("activo") == "on"
+
+        contexto_base = {"concepto": concepto}
+
+        if not codigo:
+            messages.error(request, "El código es obligatorio.")
+            return render(request, "finanzas/presupuestos/conceptos/concepto_editar.html", contexto_base)
+
+        if not nombre:
+            messages.error(request, "El nombre es obligatorio.")
+            return render(request, "finanzas/presupuestos/concepto_editar.html", contexto_base)
+
+        if ConceptoIngreso.objects.filter(codigo__iexact=codigo).exclude(pk=pk).exists():
+            messages.error(request, f"Ya existe otro concepto con el código {codigo}.")
+            return render(request, "finanzas/presupuestos/conceptos/concepto_editar.html", contexto_base)
+
+        concepto.codigo = codigo
+        concepto.nombre = nombre
+        concepto.descripcion = descripcion
+        concepto.activo = activo
+        concepto.save()
+
+        messages.success(request, "El concepto de ingreso se actualizó correctamente.")
+        return redirect("conceptos_lista")
+
+    return render(request, "finanzas/presupuestos/conceptos/concepto_editar.html", {"concepto": concepto})
+
+
+@login_required
+@require_POST
+def concepto_toggle_activo(request, pk):
+
+    concepto = get_object_or_404(ConceptoIngreso, pk=pk)
+    concepto.activo = not concepto.activo
+    concepto.save(update_fields=["activo"])
+
+    estado = "activado" if concepto.activo else "desactivado"
+    messages.success(request, f"El concepto {concepto.codigo} fue {estado}.")
+
+    return redirect("conceptos_lista")
+
+
+@never_cache
+@login_required
+def concepto_eliminar(request, pk):
+
+    concepto = get_object_or_404(ConceptoIngreso, pk=pk)
+
+    if request.method == "POST":
+
+        try:
+            concepto.delete()
+        except models.ProtectedError:
+            messages.error(
+                request,
+                "No se puede eliminar este concepto porque ya está siendo usado "
+                "en uno o más presupuestos. Puedes desactivarlo en su lugar."
+            )
+            return redirect("conceptos_lista")
+
+        messages.success(request, "El concepto de ingreso fue eliminado.")
+        return redirect("conceptos_lista")
+
+    return render(request, "finanzas/presupuestos/conceptos/concepto_eliminar.html", {"concepto": concepto})
+
+
+# =====================================================
+# CATALOGO: PARTIDAS DE GASTO
+# =====================================================
+
+@never_cache
+@login_required
+def partidas_lista(request):
+
+    busqueda = request.GET.get("q", "")
+
+    partidas = PartidaGasto.objects.select_related("partida_padre").all().order_by("codigo")
+
+    if busqueda:
+        partidas = partidas.filter(
+            Q(codigo__icontains=busqueda) | Q(nombre__icontains=busqueda)
+        )
+
+    return render(
+        request,
+        "finanzas/presupuestos/partidas/lista.html",
+        {"partidas": partidas, "busqueda": busqueda}
+    )
+
+
+@never_cache
+@login_required
+def partida_crear(request):
+
+    partidas_disponibles = PartidaGasto.objects.filter(activo=True).order_by("codigo")
+    contexto_base = {"partidas_disponibles": partidas_disponibles}
+
+    if request.method == "POST":
+
+        codigo = (request.POST.get("codigo") or "").strip().upper()
+        nombre = (request.POST.get("nombre") or "").strip()
+        descripcion = request.POST.get("descripcion", "")
+        partida_padre_id = request.POST.get("partida_padre") or None
+        activo = request.POST.get("activo") == "on"
+
+        if not codigo:
+            messages.error(request, "El código es obligatorio.")
+            return render(request, "finanzas/presupuestos/partidas/partida_crear.html", contexto_base)
+
+        if not nombre:
+            messages.error(request, "El nombre es obligatorio.")
+            return render(request, "finanzas/presupuestos/partidas/partida_crear.html", contexto_base)
+
+        if PartidaGasto.objects.filter(codigo__iexact=codigo).exists():
+            messages.error(request, f"Ya existe una partida con el código {codigo}.")
+            return render(request, "finanzas/presupuestos/partidas/partida_crear.html", contexto_base)
+
+        partida_padre = None
+        if partida_padre_id:
+            partida_padre = get_object_or_404(PartidaGasto, pk=partida_padre_id)
+
+        PartidaGasto.objects.create(
+            codigo=codigo, nombre=nombre, descripcion=descripcion,
+            partida_padre=partida_padre, activo=activo,
+        )
+
+        messages.success(request, "La partida de gasto se creó correctamente.")
+        return redirect("partidas_lista")
+
+    return render(request, "finanzas/presupuestos/partidas/partida_crear.html", contexto_base)
+
+
+@never_cache
+@login_required
+def partida_editar(request, pk):
+
+    partida = get_object_or_404(PartidaGasto, pk=pk)
+
+    partidas_disponibles = (
+        PartidaGasto.objects.filter(activo=True).exclude(pk=pk).order_by("codigo")
+    )
+
+    if request.method == "POST":
+
+        codigo = (request.POST.get("codigo") or "").strip().upper()
+        nombre = (request.POST.get("nombre") or "").strip()
+        descripcion = request.POST.get("descripcion", "")
+        partida_padre_id = request.POST.get("partida_padre") or None
+        activo = request.POST.get("activo") == "on"
+
+        contexto_base = {"partida": partida, "partidas_disponibles": partidas_disponibles}
+
+        if not codigo:
+            messages.error(request, "El código es obligatorio.")
+            return render(request, "finanzas/presupuestos/partidas/partida_editar.html", contexto_base)
+
+        if not nombre:
+            messages.error(request, "El nombre es obligatorio.")
+            return render(request, "finanzas/presupuestos/partidas/partida_editar.html", contexto_base)
+
+        if PartidaGasto.objects.filter(codigo__iexact=codigo).exclude(pk=pk).exists():
+            messages.error(request, f"Ya existe otra partida con el código {codigo}.")
+            return render(request, "finanzas/presupuestos/partidas/partida_editar.html", contexto_base)
+
+        partida_padre = None
+        if partida_padre_id:
+            if str(partida_padre_id) == str(pk):
+                messages.error(request, "Una partida no puede ser su propia partida padre.")
+                return render(request, "finanzas/presupuestos/partidas/partida_editar.html", contexto_base)
+            partida_padre = get_object_or_404(PartidaGasto, pk=partida_padre_id)
+
+        partida.codigo = codigo
+        partida.nombre = nombre
+        partida.descripcion = descripcion
+        partida.partida_padre = partida_padre
+        partida.activo = activo
+        partida.save()
+
+        messages.success(request, "La partida de gasto se actualizó correctamente.")
+        return redirect("partidas_lista")
+
+    return render(
+        request,
+        "finanzas/presupuestos/partidas/partida_editar.html",
+        {"partida": partida, "partidas_disponibles": partidas_disponibles}
+    )
+
+
+@login_required
+@require_POST
+def partida_toggle_activo(request, pk):
+
+    partida = get_object_or_404(PartidaGasto, pk=pk)
+    partida.activo = not partida.activo
+    partida.save(update_fields=["activo"])
+
+    estado = "activada" if partida.activo else "desactivada"
+    messages.success(request, f"La partida {partida.codigo} fue {estado}.")
+
+    return redirect("partidas_lista")
+
+
+@never_cache
+@login_required
+def partida_eliminar(request, pk):
+
+    partida = get_object_or_404(PartidaGasto, pk=pk)
+
+    if request.method == "POST":
+
+        try:
+            partida.delete()
+        except models.ProtectedError:
+            messages.error(
+                request,
+                "No se puede eliminar esta partida porque tiene subpartidas o ya "
+                "está siendo usada en uno o más presupuestos. Puedes desactivarla "
+                "en su lugar."
+            )
+            return redirect("partidas_lista")
+
+        messages.success(request, "La partida de gasto fue eliminada.")
+        return redirect("partidas_lista")
+
+    return render(request, "finanzas/presupuestos/partidas/partida_eliminar.html", {"partida": partida})

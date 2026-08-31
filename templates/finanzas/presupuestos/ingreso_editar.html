@@ -1,0 +1,115 @@
+{% extends 'finanzas/base_finanzas.html' %}
+{% load humanize %}
+
+{% block title %}Editar Ingreso{% endblock %}
+{% block page_title %}Editar Ingreso Presupuestado{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+
+    <div class="col-lg-8">
+
+        <div class="mb-4">
+
+            <a href="{% url 'presupuesto_detalle' presupuesto_ingreso.presupuesto.pk %}"
+               class="text-decoration-none">
+                <i class="bi bi-arrow-left me-1"></i>
+                Regresar al presupuesto
+            </a>
+
+        </div>
+
+        <div class="card shadow-sm border-0">
+
+            <div class="card-header bg-white">
+
+                <h5 class="mb-1">
+                    Editar ingreso presupuestado
+                </h5>
+
+                <div class="text-muted small">
+                    {{ presupuesto_ingreso.presupuesto.nombre }}
+                    · Ejercicio {{ presupuesto_ingreso.presupuesto.ejercicio }}
+                </div>
+
+            </div>
+
+            <div class="card-body">
+
+                <form method="post">
+
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            Concepto de ingreso
+                        </label>
+
+                        <input type="text"
+                               class="form-control"
+                               value="{{ presupuesto_ingreso.concepto.codigo }} - {{ presupuesto_ingreso.concepto.nombre }}"
+                               disabled>
+
+                        <div class="form-text">
+                            El concepto no se puede cambiar. Si necesitas otro
+                            concepto, elimina esta línea y agrega una nueva.
+                        </div>
+
+                    </div>
+
+                    <div class="mb-4">
+
+                        <label for="monto_anual" class="form-label">
+                            Monto anual
+                        </label>
+
+                        <div class="input-group">
+
+                            <span class="input-group-text">$</span>
+
+                            <input type="number"
+                                   name="monto_anual"
+                                   id="monto_anual"
+                                   class="form-control"
+                                   min="0.01"
+                                   step="0.01"
+                                   value="{{ request.POST.monto_anual|default:presupuesto_ingreso.monto_anual }}"
+                                   required>
+
+                        </div>
+
+                        <div class="form-text">
+                            Si cambias este monto, recuerda actualizar también la
+                            <a href="{% url 'ingreso_mensual' presupuesto_ingreso.pk %}">distribución mensual</a>.
+                        </div>
+
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+
+                        <a href="{% url 'ingreso_eliminar' presupuesto_ingreso.pk %}"
+                           class="btn btn-outline-danger">
+                            <i class="bi bi-trash me-1"></i>
+                            Eliminar
+                        </a>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>
+                            Guardar cambios
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

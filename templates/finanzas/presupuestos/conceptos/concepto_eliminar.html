@@ -1,0 +1,25 @@
+{% extends "finanzas/base_finanzas.html" %}
+
+{% block title %}Eliminar Concepto - ERP FINANZAS{% endblock %}
+{% block menu_presupuestos %}active{% endblock %}
+{% block page_title %}Eliminar Concepto de Ingreso{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-exclamation-triangle fs-1 text-danger"></i>
+        <h5 class="card-title">¿Estás seguro de que deseas eliminar {{ concepto.codigo }} - {{ concepto.nombre }}?</h5>
+        <p class="card-text">Si este concepto ya está siendo usado en algún presupuesto, no podrá eliminarse o podrás desactivarlo en su lugar desde el listado.</p>
+        <p>Esta acción no se puede deshacer.</p>
+        <form method="post" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">
+                <i class="bi bi-trash"></i> Sí, eliminar
+            </button>
+        </form>
+        <a href="{% url 'conceptos_lista' %}" class="btn btn-secondary">
+            <i class="bi bi-x-circle"></i> Cancelar
+        </a>
+    </div>
+</div>
+{% endblock %}

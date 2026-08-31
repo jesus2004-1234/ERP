@@ -1,0 +1,25 @@
+{% extends "finanzas/base_finanzas.html" %}
+
+{% block title %}Eliminar Partida - ERP FINANZAS{% endblock %}
+{% block menu_presupuesto %}active{% endblock %}
+{% block page_title %}Eliminar Partida de Gasto{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-exclamation-triangle fs-1 text-danger"></i>
+        <h5 class="card-title">¿Estás seguro de que deseas eliminar {{ partida.codigo }} - {{ partida.nombre }}?</h5>
+        <p class="card-text">Si esta partida tiene subpartidas o ya está siendo usada en algún presupuesto, no podrá eliminarse o podrás desactivarla en su lugar desde el listado.</p>
+        <p>Esta acción no se puede deshacer.</p>
+        <form method="post" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">
+                <i class="bi bi-trash"></i> Sí, eliminar
+            </button>
+        </form>
+        <a href="{% url 'partidas_lista' %}" class="btn btn-secondary">
+            <i class="bi bi-x-circle"></i> Cancelar
+        </a>
+    </div>
+</div>
+{% endblock %}

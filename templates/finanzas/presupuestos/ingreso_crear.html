@@ -1,0 +1,157 @@
+{% extends 'finanzas/base_finanzas.html' %}
+{% load humanize %}
+
+{% block title %}Agregar Ingreso{% endblock %}
+{% block page_title %}Agregar Ingreso Presupuestado{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+
+    <div class="col-lg-8">
+
+        <div class="mb-4">
+
+            <a href="{% url 'presupuesto_detalle' presupuesto.pk %}"
+               class="text-decoration-none">
+
+                <i class="bi bi-arrow-left me-1"></i>
+                Regresar al presupuesto
+
+            </a>
+
+        </div>
+
+
+        <div class="card shadow-sm border-0">
+
+            <div class="card-header bg-white">
+
+                <h5 class="mb-1">
+                    Agregar ingreso presupuestado
+                </h5>
+
+                <div class="text-muted small">
+
+                    {{ presupuesto.nombre }}
+                    · Ejercicio {{ presupuesto.ejercicio }}
+
+                </div>
+
+            </div>
+
+
+            <div class="card-body">
+
+                <form method="post">
+
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+
+                        <label for="concepto"
+                               class="form-label">
+
+                            Concepto de ingreso
+
+                        </label>
+
+                        <select name="concepto"
+                                id="concepto"
+                                class="form-select"
+                                required>
+
+                            <option value="">
+                                Seleccione un concepto
+                            </option>
+
+                            {% for concepto in conceptos %}
+
+                                <option value="{{ concepto.pk }}"
+
+                                    {% if request.POST.concepto == concepto.pk|stringformat:"s"%}selected{% endif%}>
+
+                                    {{ concepto.codigo }}
+                                    - {{ concepto.nombre }}
+
+                                </option>
+
+                            {% empty %}
+
+                                <option value="">
+                                    No existen conceptos activos
+                                </option>
+
+                            {% endfor %}
+
+                        </select>
+
+                    </div>
+
+
+                    <div class="mb-4">
+
+                        <label for="monto_anual"
+                               class="form-label">
+
+                            Monto anual
+
+                        </label>
+
+                        <div class="input-group">
+
+                            <span class="input-group-text">
+                                $
+                            </span>
+
+                            <input type="number"
+                                   name="monto_anual"
+                                   id="monto_anual"
+                                   class="form-control"
+                                   min="0.01"
+                                   step="0.01"
+                                   placeholder="0.00"
+                                   value="{{ request.POST.monto_anual|default:'' }}"
+                                   required>
+
+                        </div>
+
+                        <div class="form-text">
+
+                            Monto total presupuestado para este concepto durante el ejercicio.
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="d-flex justify-content-between">
+
+                        <a href="{% url 'presupuesto_detalle' presupuesto.pk %}"
+                           class="btn btn-outline-secondary">
+
+                            Cancelar
+
+                        </a>
+
+                        <button type="submit"
+                                class="btn btn-primary">
+
+                            <i class="bi bi-check-lg me-1"></i>
+                            Agregar ingreso
+
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

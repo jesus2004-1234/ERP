@@ -1,0 +1,648 @@
+{% extends 'finanzas/base_finanzas.html' %}
+{% load humanize %}
+
+{% block title %}Presupuesto {{ presupuesto.ejercicio }}{% endblock %}
+{% block page_title %}Presupuesto Anual{% endblock %}
+
+{% block content %}
+
+<!-- ===================================================== -->
+<!-- ENCABEZADO -->
+<!-- ===================================================== -->
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div>
+
+        <h4 class="mb-1">
+            {{ presupuesto.nombre }}
+        </h4>
+
+        <p class="text-muted mb-0">
+            Ejercicio {{ presupuesto.ejercicio }}
+        </p>
+
+    </div>
+
+    <div>
+        <a href="{% url 'presupuesto_editar' presupuesto.pk %}"
+           class="btn btn-warning">
+
+           <i class="bi bi-pencil"></i>
+           Editar
+        </a>
+
+        <a href="{% url 'presupuesto_eliminar' presupuesto.pk%}"
+           class="btn btn-danger">
+
+           <i class="bi bi-trash"></i>
+           Eliminar
+        </a>
+
+        <a href="{% url 'presupuestos_lista' %}"
+           class="btn btn-outline-secondary">
+
+            <i class="bi bi-arrow-left me-1"></i>
+            Regresar
+
+        </a>
+
+    </div>
+
+</div>
+
+
+<!-- ===================================================== -->
+<!-- RESUMEN DEL PRESUPUESTO -->
+<!-- ===================================================== -->
+
+<div class="row g-3 mb-4">
+
+    <!-- EJERCICIO -->
+
+    <div class="col-md-3">
+
+        <div class="card shadow-sm border-0 h-100">
+
+            <div class="card-body">
+
+                <div class="text-muted small">
+                    Ejercicio
+                </div>
+
+                <h3 class="mb-0">
+                    {{ presupuesto.ejercicio }}
+                </h3>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ESTATUS -->
+
+    <div class="col-md-3">
+
+        <div class="card shadow-sm border-0 h-100">
+
+            <div class="card-body">
+
+                <div class="text-muted small">
+                    Estatus
+                </div>
+
+                <div class="mt-2">
+
+                    {% if presupuesto.estatus == "Borrador" %}
+
+                        <span class="badge bg-warning text-dark">
+                            Borrador
+                        </span>
+
+                    {% elif presupuesto.estatus == "Activo" %}
+
+                        <span class="badge bg-success">
+                            Activo
+                        </span>
+
+                    {% elif presupuesto.estatus == "Cerrado" %}
+
+                        <span class="badge bg-secondary">
+                            Cerrado
+                        </span>
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- INGRESOS -->
+
+    <div class="col-md-3">
+
+        <div class="card shadow-sm border-0 h-100">
+
+            <div class="card-body">
+
+                <div class="text-muted small">
+                    Ingresos presupuestados
+                </div>
+
+                <h4 class="mb-0 mt-1">
+                    ${{ total_ingresos|floatformat:2|intcomma }}
+                </h4>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- GASTOS -->
+
+    <div class="col-md-3">
+
+        <div class="card shadow-sm border-0 h-100">
+
+            <div class="card-body">
+
+                <div class="text-muted small">
+                    Gastos presupuestados
+                </div>
+
+                <h4 class="mb-0 mt-1">
+                    ${{ total_gastos|floatformat:2|intcomma }}
+                </h4>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ===================================================== -->
+<!-- RESULTADO PRESUPUESTARIO -->
+<!-- ===================================================== -->
+
+<div class="card shadow-sm border-0 mb-4">
+
+    <div class="card-body">
+
+        <div class="row align-items-center">
+
+            <div class="col-md-8">
+
+                <div class="text-muted small">
+                    Resultado presupuestario
+                </div>
+
+                <h3 class="mb-0">
+
+                    ${{ resultado_presupuestario|floatformat:2|intcomma }}
+
+                </h3>
+
+                <small class="text-muted">
+                    Ingresos menos gastos
+                </small>
+
+            </div>
+
+            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+
+                {% if total_ingresos > total_gastos %}
+
+                    <span class="badge bg-success fs-6">
+                        Superávit
+                    </span>
+
+                {% elif total_ingresos < total_gastos %}
+
+                    <span class="badge bg-danger fs-6">
+                        Déficit
+                    </span>
+
+                {% else %}
+
+                    <span class="badge bg-secondary fs-6">
+                        Equilibrado
+                    </span>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ===================================================== -->
+<!-- OBSERVACIONES -->
+<!-- ===================================================== -->
+
+{% if presupuesto.observaciones %}
+
+<div class="card shadow-sm border-0 mb-4">
+
+    <div class="card-body">
+
+        <h6 class="mb-2">
+
+            <i class="bi bi-info-circle me-1"></i>
+            Observaciones
+
+        </h6>
+
+        <p class="mb-0">
+
+            {{ presupuesto.observaciones|linebreaksbr }}
+
+        </p>
+
+    </div>
+
+</div>
+
+{% endif %}
+
+
+<!-- ===================================================== -->
+<!-- INGRESOS PRESUPUESTADOS -->
+<!-- ===================================================== -->
+
+<div class="card shadow-sm border-0 mb-4">
+
+    <div class="card-header bg-white
+                d-flex justify-content-between
+                align-items-center">
+
+        <div>
+
+            <h5 class="mb-0">
+
+                <i class="bi bi-arrow-down-circle me-2"></i>
+                Ingresos presupuestados
+
+            </h5>
+
+            <small class="text-muted">
+                Conceptos de ingreso incluidos en el presupuesto
+            </small>
+
+        </div>
+
+        <a href="{% url 'ingreso_crear' presupuesto.pk %}"
+           class="btn btn-sm btn-primary">
+
+            <i class="bi bi-plus-circle me-1"></i>
+            Agregar ingreso
+
+        </a>
+
+    </div>
+
+
+    <div class="card-body p-0">
+
+        <div class="table-responsive">
+
+            <table class="table table-hover align-middle mb-0">
+
+                <thead class="table-light">
+
+                    <tr>
+
+                        <th>
+                            Código
+                        </th>
+
+                        <th>
+                            Concepto
+                        </th>
+
+                        <th class="text-end">
+                            Monto anual
+                        </th>
+
+                        <th class="text-end">
+                            Acciones
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody>
+
+                    {% for ingreso in ingresos %}
+
+                    <tr>
+
+                        <td>
+
+                            <span class="fw-semibold">
+                                {{ ingreso.concepto.codigo }}
+                            </span>
+
+                        </td>
+
+
+                        <td>
+
+                            {{ ingreso.concepto.nombre }}
+
+                        </td>
+
+
+                        <td class="text-end">
+
+                            <span class="fw-semibold">
+
+                                ${{ ingreso.monto_anual|floatformat:2|intcomma }}
+
+                            </span>
+
+                        </td>
+
+
+                        <td class="text-end">
+
+                            <a href="{% url 'ingreso_mensual' ingreso.pk %}"
+                               class="btn btn-sm btn-outline-secondary"
+                               title="Distribuir presupuesto mensual">
+
+                                <i class="bi bi-calendar3"></i>
+
+                            </a>
+
+                            <a href="{% url 'ingreso_editar' ingreso.pk %}"
+                               class="btn btn-warning"
+                               title="Editar">
+
+                               <i class="bi bi-pencil"></i>
+                            </a>
+
+                            <a href="{% url 'ingreso_eliminar' ingreso.pk %}"
+                               class="btn btn-danger"
+                               title="Eliminar">
+
+                               <i class="bi bi-trash"></i>
+                            </a>
+
+                        </td>
+
+                    </tr>
+
+
+                    {% empty %}
+
+                    <tr>
+
+                        <td colspan="4"
+                            class="text-center text-muted py-4">
+
+                            <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+
+                            No hay ingresos presupuestados.
+
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+
+                {% if ingresos %}
+
+                <tfoot>
+
+                    <tr class="table-light">
+
+                        <th colspan="2">
+                            Total ingresos
+                        </th>
+
+                        <th class="text-end">
+
+                            ${{ total_ingresos|floatformat:2|intcomma }}
+
+                        </th>
+
+                        <th></th>
+
+                    </tr>
+
+                </tfoot>
+
+                {% endif %}
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ===================================================== -->
+<!-- GASTOS PRESUPUESTADOS -->
+<!-- ===================================================== -->
+
+<div class="card shadow-sm border-0 mb-4">
+
+    <div class="card-header bg-white
+                d-flex justify-content-between
+                align-items-center">
+
+        <div>
+
+            <h5 class="mb-0">
+
+                <i class="bi bi-arrow-up-circle me-2"></i>
+                Gastos presupuestados
+
+            </h5>
+
+            <small class="text-muted">
+                Partidas de gasto incluidas en el presupuesto
+            </small>
+
+        </div>
+
+
+        <a href="{% url 'gasto_crear' presupuesto.pk %}"
+           class="btn btn-sm btn-primary">
+
+            <i class="bi bi-plus-circle me-1"></i>
+            Agregar gasto
+
+        </a>
+
+    </div>
+
+
+    <div class="card-body p-0">
+
+        <div class="table-responsive">
+
+            <table class="table table-hover align-middle mb-0">
+
+                <thead class="table-light">
+
+                    <tr>
+
+                        <th>
+                            Código
+                        </th>
+
+                        <th>
+                            Partida
+                        </th>
+
+                        <th class="text-end">
+                            Monto anual
+                        </th>
+
+                        <th class="text-end">
+                            Acciones
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody>
+
+                    {% for gasto in gastos %}
+
+                    <tr>
+
+                        <td>
+
+                            <span class="fw-semibold">
+                                {{ gasto.partida.codigo }}
+                            </span>
+
+                        </td>
+
+
+                        <td>
+
+                            {{ gasto.partida.nombre }}
+
+                        </td>
+
+
+                        <td class="text-end">
+
+                            <span class="fw-semibold">
+
+                                ${{ gasto.monto_anual|floatformat:2|intcomma }}
+
+                            </span>
+
+                        </td>
+
+
+                        <td class="text-end">
+
+                            <a href="{% url 'gasto_mensual' gasto.pk %}"
+                               class="btn btn-sm btn-outline-secondary"
+                               title="Distribuir presupuesto mensual">
+
+                                <i class="bi bi-calendar3"></i>
+
+                            </a>
+
+                            <a href="{% url 'gasto_editar' gasto.pk %}"
+                               class="btn btn-warning"
+                               title="Editar">
+
+                               <i class="bi bi-pencil"></i>
+                            </a>
+
+                            <a href="{% url 'gasto_eliminar' gasto.pk %}"
+                               class="btn btn-danger"
+                               title="Eliminar">
+
+                               <i class="bi bi-trash"></i>
+                            </a>
+
+                        </td>
+
+                    </tr>
+
+
+                    {% empty %}
+
+                    <tr>
+
+                        <td colspan="4"
+                            class="text-center text-muted py-4">
+
+                            <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+
+                            No hay gastos presupuestados.
+
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+
+                {% if gastos %}
+
+                <tfoot>
+
+                    <tr class="table-light">
+
+                        <th colspan="2">
+                            Total gastos
+                        </th>
+
+                        <th class="text-end">
+
+                            ${{ total_gastos|floatformat:2|intcomma }}
+
+                        </th>
+
+                        <th></th>
+
+                    </tr>
+
+                </tfoot>
+
+                {% endif %}
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ===================================================== -->
+<!-- PIE -->
+<!-- ===================================================== -->
+
+<div class="text-muted small mb-4">
+
+    <i class="bi bi-clock-history me-1"></i>
+
+    Creado:
+    {{ presupuesto.fecha_creacion|date:"d/m/Y H:i" }}
+
+    &nbsp; · &nbsp;
+
+    Última actualización:
+    {{ presupuesto.fecha_actualizacion|date:"d/m/Y H:i" }}
+
+</div>
+
+{% endblock %}
+

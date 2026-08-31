@@ -1,0 +1,146 @@
+{% extends 'finanzas/base_finanzas.html' %}
+
+{% block title %}Partidas de Gasto{% endblock %}
+{% block page_title %}Partidas de Gasto{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div>
+        <h4 class="mb-1">Partidas de Gasto</h4>
+        <p class="text-muted mb-0">
+            Catálogo de partidas disponibles para presupuestar gastos.
+        </p>
+    </div>
+
+    <div>
+        <a href="{% url 'presupuestos_lista' %}" class="btn btn-outline-secondary me-2">
+            <i class="bi bi-arrow-left me-1"></i>
+            Presupuestos
+        </a>
+        <a href="{% url 'partida_crear' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i>
+            Nueva partida
+        </a>
+    </div>
+
+</div>
+
+<div class="card shadow-sm border-0 mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-2">
+            <div class="col-md-8">
+                <input type="text" name="q" class="form-control"
+                       placeholder="Buscar por código o nombre..."
+                       value="{{ busqueda }}">
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-search me-1"></i>
+                    Buscar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0">
+
+    <div class="card-body p-0">
+
+        <div class="table-responsive">
+
+            <table class="table table-hover align-middle mb-0">
+
+                <thead class="table-dark">
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th>Partida padre</th>
+                        <th>Estatus</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for partida in partidas %}
+
+                    <tr>
+
+                        <td><strong>{{ partida.codigo }}</strong></td>
+
+                        <td>
+                            {{ partida.nombre }}
+                            {% if partida.descripcion %}
+                                <div class="small text-muted">
+                                    {{ partida.descripcion|truncatechars:80 }}
+                                </div>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if partida.partida_padre %}
+                                {{ partida.partida_padre.codigo }} - {{ partida.partida_padre.nombre }}
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if partida.activo %}
+                                <span class="badge bg-success">Activa</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inactiva</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="text-end">
+
+                            <a href="{% url 'partida_editar' partida.pk %}"
+                               class="btn btn-sm btn-outline-primary" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+
+                            <form method="post" action="{% url 'partida_toggle_activo' partida.pk %}"
+                                  class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit"
+                                        class="btn btn-sm btn-outline-{% if partida.activo %}warning{% else %}success{% endif %}"
+                                        title="{% if partida.activo %}Desactivar{% else %}Activar{% endif %}">
+                                    <i class="bi bi-{% if partida.activo %}pause-circle{% else %}play-circle{% endif %}"></i>
+                                </button>
+                            </form>
+
+                            <a href="{% url 'partida_eliminar' partida.pk %}"
+                               class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                <i class="bi bi-trash"></i>
+                            </a>
+
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                            No hay partidas de gasto registradas.
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

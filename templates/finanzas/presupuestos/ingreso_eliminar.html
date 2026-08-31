@@ -1,0 +1,70 @@
+{% extends 'finanzas/base_finanzas.html' %}
+{% load humanize %}
+
+{% block title %}Eliminar Ingreso{% endblock %}
+{% block page_title %}Eliminar Ingreso Presupuestado{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+
+    <div class="col-lg-6">
+
+        <div class="card border-danger shadow-sm">
+
+            <div class="card-header bg-danger text-white">
+
+                <h5 class="mb-0">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Confirmar eliminación
+                </h5>
+
+            </div>
+
+            <div class="card-body">
+
+                <p>
+                    ¿Eliminar el ingreso presupuestado de
+                    <strong>{{ presupuesto_ingreso.concepto.codigo }} - {{ presupuesto_ingreso.concepto.nombre }}</strong>
+                    por ${{ presupuesto_ingreso.monto_anual|floatformat:2 }} del presupuesto
+                    <strong>{{ presupuesto_ingreso.presupuesto.nombre }}</strong>?
+                </p>
+
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    Se eliminará también toda su distribución mensual (los 12 meses).
+                </div>
+
+                <p class="text-muted small">
+                    Esta acción no se puede deshacer.
+                </p>
+
+                <form method="post">
+
+                    {% csrf_token %}
+
+                    <div class="d-flex justify-content-between">
+
+                        <a href="{% url 'presupuesto_detalle' presupuesto_ingreso.presupuesto.pk %}"
+                           class="btn btn-outline-secondary">
+                            Cancelar
+                        </a>
+
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash me-1"></i>
+                            Eliminar
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
