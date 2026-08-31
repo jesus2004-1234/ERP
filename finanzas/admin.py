@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Expediente, ExpedienteDocumento, FacturaCliente, PagoCliente, FacturaProveedor, PagoProveedor
+from .models import Expediente, ExpedienteDocumento, FacturaCliente, PagoCliente, FacturaProveedor, PagoProveedor, PresupuestoAnual, ConceptoIngreso, PartidaGasto,PresupuestoIngreso, PresupuestoGasto, PresupuestoIngresoMensual, PresupuestoGastoMensual
 
 
 @admin.register(Expediente)
@@ -147,3 +147,94 @@ class PagoProveedorAdmin(admin.ModelAdmin):
     search_fields = ("factura__factura", "referencia", "factura__expediente__razon_social")
     date_hierarchy = "fecha_pago"
     readonly_fields = ("fecha_registro",)
+
+
+# =====================================================
+# CATÁLOGOS
+# =====================================================
+
+@admin.register(ConceptoIngreso)
+class ConceptoIngresoAdmin(admin.ModelAdmin):
+    list_display = ("codigo", "nombre", "activo")
+    list_filter = ("activo",)
+    search_fields = ("codigo", "nombre")
+    ordering = ("codigo",)
+
+
+@admin.register(PartidaGasto)
+class PartidaGastoAdmin(admin.ModelAdmin):
+    list_display = ("codigo", "nombre", "partida_padre", "activo")
+    list_filter = ("activo", "partida_padre")
+    search_fields = ("codigo", "nombre")
+    ordering = ("codigo",)
+    autocomplete_fields = ("partida_padre",)
+
+
+# =====================================================
+# DISTRIBUCIÓN MENSUAL (inline, se ven dentro de su línea padre)
+# =====================================================
+
+class PresupuestoIngresoMensualInline(admin.TabularInline):
+    model = PresupuestoIngresoMensual
+    extra = 0
+    ordering = ("mes",)
+
+
+class PresupuestoGastoMensualInline(admin.TabularInline):
+    model = PresupuestoGastoMensual
+    extra = 0
+    ordering = ("mes",)
+
+
+# =====================================================
+# LÍNEAS DE INGRESO / GASTO
+# =====================================================
+
+@admin.register(PresupuestoIngreso)
+class PresupuestoIngresoAdmin(admin.ModelAdmin):
+    list_display = ("presupuesto", "concepto", "monto_anual")
+    list_filter = ("presupuesto",)
+    search_fields = ("concepto__codigo", "concepto__nombre", "presupuesto__nombre")
+    autocomplete_fields = ("presupuesto", "concepto")
+    inlines = [PresupuestoIngresoMensualInline]
+
+
+@admin.register(PresupuestoGasto)
+class PresupuestoGastoAdmin(admin.ModelAdmin):
+    list_display = ("presupuesto", "partida", "monto_anual")
+    list_filter = ("presupuesto",)
+    search_fields = ("partida__codigo", "partida__nombre", "presupuesto__nombre")
+    autocomplete_fields = ("presupuesto", "partida")
+    inlines = [PresupuestoGastoMensualInline]
+
+
+# =====================================================
+# PRESUPUESTO ANUAL (con sus líneas visibles inline, de solo lectura)
+# =====================================================
+
+class PresupuestoIngresoReadOnlyInline(admin.TabularInline):
+    model = PresupuestoIngreso
+    extra = 0
+    fields = ("concepto", "monto_anual")
+    readonly_fields = ("concepto", "monto_anual")
+    can_delete = False
+    show_change_link = True
+
+
+class PresupuestoGastoReadOnlyInline(admin.TabularInline):
+    model = PresupuestoGasto
+    extra = 0
+    fields = ("partida", "monto_anual")
+    readonly_fields = ("partida", "monto_anual")
+    can_delete = False
+    show_change_link = True
+
+
+@admin.register(PresupuestoAnual)
+class PresupuestoAnualAdmin(admin.ModelAdmin):
+    list_display = ("ejercicio", "nombre", "estatus", "fecha_creacion")
+    list_filter = ("estatus",)
+    search_fields = ("nombre",)
+    ordering = ("-ejercicio",)
+    readonly_fields = ("fecha_creacion", "fecha_actualizacion")
+    inlines = [PresupuestoIngresoReadOnlyInline, PresupuestoGastoReadOnlyInline]
