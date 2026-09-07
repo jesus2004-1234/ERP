@@ -1,0 +1,123 @@
+{% extends 'finanzas/base_finanzas.html' %}
+
+{% block title %}Agregar Movimiento - ERP FINANZAS{% endblock %}
+{% block menu_programa_pagos %}active{% endblock %}
+{% block page_title %}Agregar Movimiento{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+
+    <div class="col-lg-8">
+
+        <div class="mb-4">
+            <a href="{% url 'programa_detalle' programa.pk %}" class="text-decoration-none">
+                <i class="bi bi-arrow-left me-1"></i>
+                Regresar al programa
+            </a>
+        </div>
+
+        <div class="card shadow-sm border-0">
+
+            <div class="card-header bg-white">
+                <h5 class="mb-1">Agregar movimiento programado</h5>
+                <div class="text-muted small">
+                    Periodo {{ programa.fecha_inicio|date:"d/m/Y" }} - {{ programa.fecha_fin|date:"d/m/Y" }}
+                </div>
+            </div>
+
+            <div class="card-body">
+
+                <form method="post">
+
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+                        <label for="categoria" class="form-label">Categoría</label>
+                        <select name="categoria" id="categoria" class="form-select" required>
+                            <option value="">Seleccione una categoría</option>
+                            {% for categoria in categorias %}
+                                <option value="{{ categoria.pk }}"
+                                    {% if request.POST.categoria == categoria.pk|stringformat:"s" %}selected{% endif %}>
+                                    {{ categoria.codigo }} - {{ categoria.nombre }} ({{ categoria.tipo }})
+                                </option>
+                            {% empty %}
+                                <option value="">No existen categorías activas</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="concepto" class="form-label">Concepto</label>
+                        <input type="text" name="concepto" id="concepto" class="form-control"
+                               maxlength="200" value="{{ request.POST.concepto|default:'' }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="factura_proveedor" class="form-label">
+                            Factura de proveedor (opcional)
+                        </label>
+                        <select name="factura_proveedor" id="factura_proveedor" class="form-select">
+                            <option value="">Ninguna — captura manual</option>
+                            {% for factura in facturas_disponibles %}
+                                <option value="{{ factura.pk }}"
+                                    {% if request.POST.factura_proveedor == factura.pk|stringformat:"s" %}selected{% endif %}>
+                                    {{ factura.factura }} - {{ factura.expediente.nombre_completo }}
+                                    (vence {{ factura.fecha_vencimiento|date:"d/m/Y" }}, saldo ${{ factura.saldo_pendiente|floatformat:2 }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">
+                            Solo aplica para movimientos de egreso ligados a una factura ya registrada en Cuentas por Pagar.
+                        </div>
+                    </div>
+
+                    <div class="row">
+
+                        <div class="col-md-6 mb-3">
+                            <label for="fecha_programada" class="form-label">Fecha programada</label>
+                            <input type="date" name="fecha_programada" id="fecha_programada" class="form-control"
+                                   min="{{ programa.fecha_inicio|date:'Y-m-d' }}"
+                                   max="{{ programa.fecha_fin|date:'Y-m-d' }}"
+                                   value="{{ request.POST.fecha_programada|default:'' }}" required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="monto" class="form-label">Monto</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" name="monto" id="monto" class="form-control"
+                                       min="0.01" step="0.01"
+                                       value="{{ request.POST.monto|default:'' }}" required>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="observaciones" class="form-label">Observaciones</label>
+                        <textarea name="observaciones" id="observaciones" class="form-control"
+                                  rows="2">{{ request.POST.observaciones|default:'' }}</textarea>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'programa_detalle' programa.pk %}" class="btn btn-outline-secondary">
+                            Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>
+                            Agregar movimiento
+                        </button>
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

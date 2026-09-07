@@ -1,0 +1,30 @@
+{% extends "finanzas/base_finanzas.html" %}
+
+{% block title %}Cerrar Programa - ERP FINANZAS{% endblock %}
+{% block menu_programa_pagos %}active{% endblock %}
+{% block page_title %}Cerrar Programa de Pagos{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-lock fs-1 text-warning"></i>
+        <h5 class="card-title">
+            ¿Cerrar el programa
+            {{ programa.fecha_inicio|date:"d/m/Y" }} - {{ programa.fecha_fin|date:"d/m/Y" }}?
+        </h5>
+        <p class="card-text">
+            Una vez cerrado, ya no podrás editarlo ni agregar, editar o eliminar
+            sus movimientos. Podrás seguir consultándolo en cualquier momento.
+        </p>
+        <form method="post" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-warning">
+                <i class="bi bi-lock"></i> Sí, cerrar programa
+            </button>
+        </form>
+        <a href="{% url 'programa_detalle' programa.pk %}" class="btn btn-secondary">
+            <i class="bi bi-x-circle"></i> Cancelar
+        </a>
+    </div>
+</div>
+{% endblock %}

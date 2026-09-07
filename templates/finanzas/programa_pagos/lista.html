@@ -1,0 +1,121 @@
+{% extends 'finanzas/base_finanzas.html' %}
+{% load humanize %}
+
+{% block title %}Programa de Pagos - ERP FINANZAS{% endblock %}
+{% block menu_programa_pagos %}active{% endblock %}
+{% block page_title %}Programa de Pagos{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div>
+        <h4 class="mb-1">Programa de Pagos</h4>
+        <p class="text-muted mb-0">
+            Flujo de efectivo proyectado por periodo.
+        </p>
+    </div>
+
+    <div>
+        <a href="{% url 'categorias_movimiento_lista' %}" class="btn btn-outline-secondary me-2">
+            <i class="bi bi-tag me-1"></i>
+            Categorías
+        </a>
+        <a href="{% url 'programa_crear' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i>
+            Nuevo programa
+        </a>
+    </div>
+
+</div>
+
+<div class="card shadow-sm border-0">
+
+    <div class="card-body p-0">
+
+        <div class="table-responsive">
+
+            <table class="table table-hover align-middle mb-0">
+
+                <thead class="table-dark">
+                    <tr>
+                        <th>Periodo</th>
+                        <th class="text-end">Saldo inicial</th>
+                        <th class="text-end">Saldo final</th>
+                        <th>Estatus</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for programa in programas %}
+
+                    <tr>
+
+                        <td>
+                            <strong>{{ programa.fecha_inicio|date:"d/m/Y" }} - {{ programa.fecha_fin|date:"d/m/Y" }}</strong>
+                        </td>
+
+                        <td class="text-end">
+                            ${{ programa.saldo_inicial|floatformat:2|intcomma }}
+                        </td>
+
+                        <td class="text-end">
+                            <span class="{% if programa.saldo_final < 0 %}text-danger{% else %}text-success{% endif %} fw-semibold">
+                                ${{ programa.saldo_final|floatformat:2|intcomma }}
+                            </span>
+                        </td>
+
+                        <td>
+                            {% if programa.estatus == "Cerrado" %}
+                                <span class="badge bg-secondary">Cerrado</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Borrador</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="text-end">
+
+                            <a href="{% url 'programa_detalle' programa.pk %}"
+                               class="btn btn-sm btn-outline-primary" title="Ver programa">
+                                <i class="bi bi-eye"></i>
+                            </a>
+
+                            <a href="{% url 'programa_editar' programa.pk %}"
+                               class="btn btn-sm btn-outline-secondary" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+
+                            <a href="{% url 'programa_eliminar' programa.pk %}"
+                               class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                <i class="bi bi-trash"></i>
+                            </a>
+
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+                        <td colspan="5" class="text-center py-5">
+                            <i class="bi bi-calendar-check fs-1 text-muted"></i>
+                            <h5 class="mt-3">No hay programas de pago registrados</h5>
+                            <p class="text-muted">Comienza creando el programa de un periodo.</p>
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

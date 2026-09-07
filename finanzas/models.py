@@ -684,3 +684,120 @@ class PresupuestoGastoMensual(models.Model):
 
     def __str__(self):
         return f"{self.presupuesto_gasto} - Mes {self.mes}: ${self.monto}"
+    
+from decimal import Decimal
+
+class CategoriaMovimiento(models.Model):
+
+    class Tipo(models.TextChoices):
+        INGRESO = "Ingreso", "Ingreso"
+        EGRESO = "Egreso", "Egreso"
+
+    codigo = models.CharField(max_length=20, unique=True, verbose_name="Código")
+    nombre = models.CharField(max_length=100, verbose_name="Nombre")
+    tipo = models.CharField(max_length=10, choices=Tipo.choices, verbose_name="Tipo")
+    activo = models.BooleanField(default=True, verbose_name="Activo")
+
+    class Meta:
+        verbose_name = "Categoría de movimiento"
+        verbose_name_plural = "Categorías de movimiento"
+        ordering = ["tipo", "codigo"]
+
+    def __str__(self):
+        return f"{self.codigo} - {self.nombre}"
+
+
+class ProgramaPago(models.Model):
+
+    class Estatus(models.TextChoices):
+        BORRADOR = "Borrador", "Borrador"
+        CERRADO = "Cerrado", "Cerrado"
+
+    fecha_inicio = models.DateField(verbose_name="Fecha inicio")
+    fecha_fin = models.DateField(verbose_name="Fecha fin")
+    saldo_inicial = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name="Saldo inicial")
+    estatus = models.CharField(max_length=20, choices=Estatus.choices, default=Estatus.BORRADOR, verbose_name="Estatus")
+    observaciones = models.TextField(blank=True, verbose_name="Observaciones")
+
+    programa_anterior = models.OneToOneField(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="programa_siguiente",
+        verbose_name="Programa anterior",
+    )
+
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación")
+    fecha_actualizacion = models.DateTimeField(auto_now=True, verbose_name="Última actualización")
+
+    class Meta:
+        verbose_name = "Programa de pagos"
+        verbose_name_plural = "Programas de pagos"
+        ordering = ["-fecha_inicio"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["fecha_inicio", "fecha_fin"],
+                name="unique_programa_periodo"
+            )
+        ]
+
+    def __str__(self):
+        return f"Programa {self.fecha_inicio:%d/%m/%Y} - {self.fecha_fin:%d/%m/%Y}"
+
+    @property
+    def total_ingresos(self):
+        return self.movimientos.filter(
+            categoria__tipo=CategoriaMovimiento.Tipo.INGRESO
+        ).exclude(
+            estatus=MovimientoPrograma.Estatus.CANCELADO
+        ).aggregate(t=models.Sum("monto"))["t"] or Decimal("0.00")
+
+    @property
+    def total_egresos(self):
+        return self.movimientos.filter(
+            categoria__tipo=CategoriaMovimiento.Tipo.EGRESO
+        ).exclude(
+            estatus=MovimientoPrograma.Estatus.CANCELADO
+        ).aggregate(t=models.Sum("monto"))["t"] or Decimal("0.00")
+
+    @property
+    def saldo_final(self):
+        return self.saldo_inicial + self.total_ingresos - self.total_egresos
+
+
+class MovimientoPrograma(models.Model):
+
+    class Estatus(models.TextChoices):
+        PROGRAMADO = "Programado", "Programado"
+        REALIZADO = "Realizado", "Realizado"
+        CANCELADO = "Cancelado", "Cancelado"
+
+    programa = models.ForeignKey(
+        ProgramaPago, on_delete=models.CASCADE, related_name="movimientos", verbose_name="Programa"
+    )
+    categoria = models.ForeignKey(
+        CategoriaMovimiento, on_delete=models.PROTECT, related_name="movimientos", verbose_name="Categoría"
+    )
+    factura_proveedor = models.ForeignKey(
+        "FacturaProveedor",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="movimientos_programados",
+        verbose_name="Factura de proveedor (opcional)",
+    )
+    concepto = models.CharField(max_length=200, verbose_name="Concepto")
+    fecha_programada = models.DateField(verbose_name="Fecha programada")
+    monto = models.DecimalField(max_digits=14, decimal_places=2, verbose_name="Monto")
+    estatus = models.CharField(max_length=20, choices=Estatus.choices, default=Estatus.PROGRAMADO, verbose_name="Estatus")
+    observaciones = models.TextField(blank=True, verbose_name="Observaciones")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación")
+
+    class Meta:
+        verbose_name = "Movimiento programado"
+        verbose_name_plural = "Movimientos programados"
+        ordering = ["fecha_programada", "id"]
+
+    def __str__(self):
+        return f"{self.concepto} - ${self.monto}"

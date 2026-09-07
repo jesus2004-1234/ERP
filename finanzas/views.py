@@ -16,7 +16,7 @@ from django.db import IntegrityError, transaction
 from django.shortcuts import render, redirect
 
 
-from .models import Expediente, ExpedienteDocumento, FacturaCliente, PagoCliente, FacturaProveedor, PagoProveedor, PresupuestoAnual, PresupuestoIngreso, ConceptoIngreso, PresupuestoGasto, PartidaGasto, PresupuestoIngresoMensual, PresupuestoGastoMensual
+from .models import Expediente, ExpedienteDocumento, FacturaCliente, PagoCliente, FacturaProveedor, PagoProveedor, PresupuestoAnual, PresupuestoIngreso, ConceptoIngreso, PresupuestoGasto, PartidaGasto, PresupuestoIngresoMensual, PresupuestoGastoMensual, CategoriaMovimiento, ProgramaPago, MovimientoPrograma
 from .validators import validar_rfc
 
 
@@ -3101,3 +3101,537 @@ def partida_eliminar(request, pk):
         return redirect("partidas_lista")
 
     return render(request, "finanzas/presupuestos/partidas/partida_eliminar.html", {"partida": partida})
+
+# =====================================================
+# CATALOGO: CATEGORÍAS DE MOVIMIENTO
+# =====================================================
+
+@never_cache
+@login_required
+def categorias_movimiento_lista(request):
+
+    busqueda = request.GET.get("q", "")
+
+    categorias = CategoriaMovimiento.objects.all().order_by("tipo", "codigo")
+
+    if busqueda:
+        categorias = categorias.filter(
+            Q(codigo__icontains=busqueda) | Q(nombre__icontains=busqueda)
+        )
+
+    return render(
+        request,
+        "finanzas/programa_pagos/categorias_lista.html",
+        {"categorias": categorias, "busqueda": busqueda}
+    )
+
+
+@never_cache
+@login_required
+def categoria_movimiento_crear(request):
+
+    contexto_base = {"tipos": CategoriaMovimiento.Tipo.choices}
+
+    if request.method == "POST":
+
+        codigo = (request.POST.get("codigo") or "").strip().upper()
+        nombre = (request.POST.get("nombre") or "").strip()
+        tipo = request.POST.get("tipo")
+        activo = request.POST.get("activo") == "on"
+
+        if not codigo:
+            messages.error(request, "El código es obligatorio.")
+            return render(request, "finanzas/programa_pagos/categoria_crear.html", contexto_base)
+
+        if not nombre:
+            messages.error(request, "El nombre es obligatorio.")
+            return render(request, "finanzas/programa_pagos/categoria_crear.html", contexto_base)
+
+        if tipo not in CategoriaMovimiento.Tipo.values:
+            messages.error(request, "Debe seleccionar un tipo válido (Ingreso o Egreso).")
+            return render(request, "finanzas/programa_pagos/categoria_crear.html", contexto_base)
+
+        if CategoriaMovimiento.objects.filter(codigo__iexact=codigo).exists():
+            messages.error(request, f"Ya existe una categoría con el código {codigo}.")
+            return render(request, "finanzas/programa_pagos/categoria_crear.html", contexto_base)
+
+        CategoriaMovimiento.objects.create(codigo=codigo, nombre=nombre, tipo=tipo, activo=activo)
+
+        messages.success(request, "La categoría se creó correctamente.")
+        return redirect("categorias_movimiento_lista")
+
+    return render(request, "finanzas/programa_pagos/categoria_crear.html", contexto_base)
+
+
+@never_cache
+@login_required
+def categoria_movimiento_editar(request, pk):
+
+    categoria = get_object_or_404(CategoriaMovimiento, pk=pk)
+    contexto_base = {"categoria": categoria, "tipos": CategoriaMovimiento.Tipo.choices}
+
+    if request.method == "POST":
+
+        codigo = (request.POST.get("codigo") or "").strip().upper()
+        nombre = (request.POST.get("nombre") or "").strip()
+        tipo = request.POST.get("tipo")
+        activo = request.POST.get("activo") == "on"
+
+        if not codigo:
+            messages.error(request, "El código es obligatorio.")
+            return render(request, "finanzas/programa_pagos/categoria_editar.html", contexto_base)
+
+        if not nombre:
+            messages.error(request, "El nombre es obligatorio.")
+            return render(request, "finanzas/programa_pagos/categoria_editar.html", contexto_base)
+
+        if tipo not in CategoriaMovimiento.Tipo.values:
+            messages.error(request, "Debe seleccionar un tipo válido (Ingreso o Egreso).")
+            return render(request, "finanzas/programa_pagos/categoria_editar.html", contexto_base)
+
+        if CategoriaMovimiento.objects.filter(codigo__iexact=codigo).exclude(pk=pk).exists():
+            messages.error(request, f"Ya existe otra categoría con el código {codigo}.")
+            return render(request, "finanzas/programa_pagos/categoria_editar.html", contexto_base)
+
+        categoria.codigo = codigo
+        categoria.nombre = nombre
+        categoria.tipo = tipo
+        categoria.activo = activo
+        categoria.save()
+
+        messages.success(request, "La categoría se actualizó correctamente.")
+        return redirect("categorias_movimiento_lista")
+
+    return render(request, "finanzas/programa_pagos/categoria_editar.html", contexto_base)
+
+
+@login_required
+@require_POST
+def categoria_movimiento_toggle_activo(request, pk):
+
+    categoria = get_object_or_404(CategoriaMovimiento, pk=pk)
+    categoria.activo = not categoria.activo
+    categoria.save(update_fields=["activo"])
+
+    estado = "activada" if categoria.activo else "desactivada"
+    messages.success(request, f"La categoría {categoria.codigo} fue {estado}.")
+
+    return redirect("categorias_movimiento_lista")
+
+
+@never_cache
+@login_required
+def categoria_movimiento_eliminar(request, pk):
+
+    categoria = get_object_or_404(CategoriaMovimiento, pk=pk)
+
+    if request.method == "POST":
+
+        try:
+            categoria.delete()
+        except models.ProtectedError:
+            messages.error(
+                request,
+                "No se puede eliminar esta categoría porque ya está siendo usada "
+                "en uno o más movimientos programados. Puedes desactivarla en su lugar."
+            )
+            return redirect("categorias_movimiento_lista")
+
+        messages.success(request, "La categoría fue eliminada.")
+        return redirect("categorias_movimiento_lista")
+
+    return render(request, "finanzas/programa_pagos/categoria_eliminar.html", {"categoria": categoria})
+
+
+# =====================================================
+# PROGRAMA DE PAGOS
+# =====================================================
+
+@never_cache
+@login_required
+def programas_lista(request):
+    programas = ProgramaPago.objects.all().order_by("-fecha_inicio")
+    return render(request, "finanzas/programa_pagos/lista.html", {"programas": programas})
+
+
+@never_cache
+@login_required
+def programa_crear(request):
+
+    # El "tail" de la cadena: el último programa que todavía no tiene
+    # un programa_siguiente asignado. Así el saldo siempre se sugiere
+    # a partir del periodo más reciente sin encadenar dos veces al mismo.
+    ultimo_programa = (
+        ProgramaPago.objects
+        .filter(programa_siguiente__isnull=True)
+        .order_by("-fecha_fin")
+        .first()
+    )
+
+    saldo_sugerido = ultimo_programa.saldo_final if ultimo_programa else Decimal("0.00")
+
+    contexto_base = {
+        "saldo_sugerido": saldo_sugerido,
+        "ultimo_programa": ultimo_programa,
+    }
+
+    if request.method == "POST":
+
+        fecha_inicio = request.POST.get("fecha_inicio")
+        fecha_fin = request.POST.get("fecha_fin")
+        observaciones = request.POST.get("observaciones", "")
+
+        if not fecha_inicio or not fecha_fin:
+            messages.error(request, "Debe especificar fecha de inicio y de fin.")
+            return render(request, "finanzas/programa_pagos/crear.html", contexto_base)
+
+        if fecha_fin < fecha_inicio:
+            messages.error(request, "La fecha de fin no puede ser anterior a la fecha de inicio.")
+            return render(request, "finanzas/programa_pagos/crear.html", contexto_base)
+
+        if ProgramaPago.objects.filter(fecha_inicio=fecha_inicio, fecha_fin=fecha_fin).exists():
+            messages.error(request, "Ya existe un programa de pagos para ese periodo exacto.")
+            return render(request, "finanzas/programa_pagos/crear.html", contexto_base)
+
+        try:
+            saldo_inicial = Decimal(request.POST.get("saldo_inicial") or "0")
+        except InvalidOperation:
+            messages.error(request, "El saldo inicial debe ser un número válido.")
+            return render(request, "finanzas/programa_pagos/crear.html", contexto_base)
+
+        programa = ProgramaPago.objects.create(
+            fecha_inicio=fecha_inicio,
+            fecha_fin=fecha_fin,
+            saldo_inicial=saldo_inicial,
+            observaciones=observaciones,
+            programa_anterior=ultimo_programa,
+        )
+
+        messages.success(request, "El programa de pagos se creó correctamente.")
+        return redirect("programa_detalle", pk=programa.pk)
+
+    return render(request, "finanzas/programa_pagos/crear.html", contexto_base)
+
+
+@never_cache
+@login_required
+def programa_detalle(request, pk):
+
+    programa = get_object_or_404(ProgramaPago, pk=pk)
+
+    movimientos = (
+        programa.movimientos
+        .select_related("categoria", "factura_proveedor")
+        .order_by("fecha_programada", "id")
+    )
+
+    ingresos = movimientos.filter(categoria__tipo=CategoriaMovimiento.Tipo.INGRESO)
+    egresos = movimientos.filter(categoria__tipo=CategoriaMovimiento.Tipo.EGRESO)
+
+    return render(
+        request,
+        "finanzas/programa_pagos/detalle.html",
+        {
+            "programa": programa,
+            "ingresos": ingresos,
+            "egresos": egresos,
+            "total_ingresos": programa.total_ingresos,
+            "total_egresos": programa.total_egresos,
+            "saldo_final": programa.saldo_final,
+        }
+    )
+
+
+@never_cache
+@login_required
+def programa_editar(request, pk):
+
+    programa = get_object_or_404(ProgramaPago, pk=pk)
+
+    if programa.estatus == ProgramaPago.Estatus.CERRADO:
+        messages.error(request, "No se puede editar un programa de pagos cerrado.")
+        return redirect("programa_detalle", pk=pk)
+
+    contexto_base = {"programa": programa}
+
+    if request.method == "POST":
+
+        fecha_inicio = request.POST.get("fecha_inicio")
+        fecha_fin = request.POST.get("fecha_fin")
+        observaciones = request.POST.get("observaciones", "")
+
+        if not fecha_inicio or not fecha_fin:
+            messages.error(request, "Debe especificar fecha de inicio y de fin.")
+            return render(request, "finanzas/programa_pagos/editar.html", contexto_base)
+
+        if fecha_fin < fecha_inicio:
+            messages.error(request, "La fecha de fin no puede ser anterior a la fecha de inicio.")
+            return render(request, "finanzas/programa_pagos/editar.html", contexto_base)
+
+        if ProgramaPago.objects.filter(fecha_inicio=fecha_inicio, fecha_fin=fecha_fin).exclude(pk=pk).exists():
+            messages.error(request, "Ya existe otro programa de pagos para ese periodo exacto.")
+            return render(request, "finanzas/programa_pagos/editar.html", contexto_base)
+
+        try:
+            saldo_inicial = Decimal(request.POST.get("saldo_inicial") or "0")
+        except InvalidOperation:
+            messages.error(request, "El saldo inicial debe ser un número válido.")
+            return render(request, "finanzas/programa_pagos/editar.html", contexto_base)
+
+        programa.fecha_inicio = fecha_inicio
+        programa.fecha_fin = fecha_fin
+        programa.saldo_inicial = saldo_inicial
+        programa.observaciones = observaciones
+        programa.save()
+
+        messages.success(request, "El programa de pagos se actualizó correctamente.")
+        return redirect("programa_detalle", pk=pk)
+
+    return render(request, "finanzas/programa_pagos/editar.html", contexto_base)
+
+
+@never_cache
+@login_required
+def programa_eliminar(request, pk):
+
+    programa = get_object_or_404(ProgramaPago, pk=pk)
+    total_movimientos = programa.movimientos.count()
+
+    if request.method == "POST":
+        programa.delete()
+        messages.success(request, "El programa de pagos fue eliminado.")
+        return redirect("programas_lista")
+
+    return render(
+        request,
+        "finanzas/programa_pagos/eliminar.html",
+        {"programa": programa, "total_movimientos": total_movimientos}
+    )
+
+
+@never_cache
+@login_required
+def programa_cerrar(request, pk):
+
+    programa = get_object_or_404(ProgramaPago, pk=pk)
+
+    if programa.estatus == ProgramaPago.Estatus.CERRADO:
+        messages.info(request, "Este programa ya está cerrado.")
+        return redirect("programa_detalle", pk=pk)
+
+    if request.method == "POST":
+        programa.estatus = ProgramaPago.Estatus.CERRADO
+        programa.save(update_fields=["estatus"])
+        messages.success(request, "El programa de pagos fue cerrado.")
+        return redirect("programa_detalle", pk=pk)
+
+    return render(request, "finanzas/programa_pagos/cerrar.html", {"programa": programa})
+
+# =====================================================
+# MOVIMIENTOS DEL PROGRAMA
+# =====================================================
+
+@never_cache
+@login_required
+def movimiento_crear(request, pk):
+
+    programa = get_object_or_404(ProgramaPago, pk=pk)
+
+    if programa.estatus == ProgramaPago.Estatus.CERRADO:
+        messages.error(request, "No se pueden agregar movimientos a un programa cerrado.")
+        return redirect("programa_detalle", pk=pk)
+
+    categorias = CategoriaMovimiento.objects.filter(activo=True).order_by("tipo", "codigo")
+
+    # Facturas de proveedor aún no pagadas/canceladas, para poder ligarlas
+    # opcionalmente a un movimiento de egreso.
+    facturas_disponibles = (
+        FacturaProveedor.objects
+        .exclude(estatus__in=[FacturaProveedor.Estatus.PAGADA, FacturaProveedor.Estatus.CANCELADA])
+        .select_related("expediente")
+        .order_by("fecha_vencimiento")
+    )
+
+    contexto_base = {
+        "programa": programa,
+        "categorias": categorias,
+        "facturas_disponibles": facturas_disponibles,
+    }
+
+    if request.method == "POST":
+
+        categoria_id = request.POST.get("categoria")
+        concepto = (request.POST.get("concepto") or "").strip()
+        fecha_programada = request.POST.get("fecha_programada")
+        factura_id = request.POST.get("factura_proveedor") or None
+        observaciones = request.POST.get("observaciones", "")
+
+        if not categoria_id:
+            messages.error(request, "Debe seleccionar una categoría.")
+            return render(request, "finanzas/programa_pagos/movimiento_crear.html", contexto_base)
+
+        categoria = get_object_or_404(CategoriaMovimiento, pk=categoria_id, activo=True)
+
+        if not concepto:
+            messages.error(request, "El concepto es obligatorio.")
+            return render(request, "finanzas/programa_pagos/movimiento_crear.html", contexto_base)
+
+        if not fecha_programada:
+            messages.error(request, "Debe especificar la fecha programada.")
+            return render(request, "finanzas/programa_pagos/movimiento_crear.html", contexto_base)
+
+        if fecha_programada < str(programa.fecha_inicio) or fecha_programada > str(programa.fecha_fin):
+            messages.error(
+                request,
+                "La fecha programada debe estar dentro del periodo del programa "
+                f"({programa.fecha_inicio:%d/%m/%Y} - {programa.fecha_fin:%d/%m/%Y})."
+            )
+            return render(request, "finanzas/programa_pagos/movimiento_crear.html", contexto_base)
+
+        try:
+            monto = Decimal(request.POST.get("monto") or "0")
+        except InvalidOperation:
+            messages.error(request, "El monto debe ser un número válido.")
+            return render(request, "finanzas/programa_pagos/movimiento_crear.html", contexto_base)
+
+        if monto <= 0:
+            messages.error(request, "El monto debe ser mayor a cero.")
+            return render(request, "finanzas/programa_pagos/movimiento_crear.html", contexto_base)
+
+        factura_proveedor = None
+        if factura_id:
+            factura_proveedor = get_object_or_404(FacturaProveedor, pk=factura_id)
+
+        MovimientoPrograma.objects.create(
+            programa=programa,
+            categoria=categoria,
+            factura_proveedor=factura_proveedor,
+            concepto=concepto,
+            fecha_programada=fecha_programada,
+            monto=monto,
+            observaciones=observaciones,
+        )
+
+        messages.success(request, "El movimiento fue agregado correctamente.")
+        return redirect("programa_detalle", pk=programa.pk)
+
+    return render(request, "finanzas/programa_pagos/movimiento_crear.html", contexto_base)
+
+
+@never_cache
+@login_required
+def movimiento_editar(request, pk):
+
+    movimiento = get_object_or_404(
+        MovimientoPrograma.objects.select_related("programa", "categoria", "factura_proveedor"),
+        pk=pk
+    )
+    programa = movimiento.programa
+
+    if programa.estatus == ProgramaPago.Estatus.CERRADO:
+        messages.error(request, "No se pueden editar movimientos de un programa cerrado.")
+        return redirect("programa_detalle", pk=programa.pk)
+
+    categorias = CategoriaMovimiento.objects.filter(activo=True).order_by("tipo", "codigo")
+    facturas_disponibles = (
+        FacturaProveedor.objects
+        .exclude(estatus__in=[FacturaProveedor.Estatus.PAGADA, FacturaProveedor.Estatus.CANCELADA])
+        .select_related("expediente")
+        .order_by("fecha_vencimiento")
+    )
+
+    contexto_base = {
+        "movimiento": movimiento,
+        "programa": programa,
+        "categorias": categorias,
+        "facturas_disponibles": facturas_disponibles,
+    }
+
+    if request.method == "POST":
+
+        categoria_id = request.POST.get("categoria")
+        concepto = (request.POST.get("concepto") or "").strip()
+        fecha_programada = request.POST.get("fecha_programada")
+        factura_id = request.POST.get("factura_proveedor") or None
+        estatus = request.POST.get("estatus", movimiento.estatus)
+        observaciones = request.POST.get("observaciones", "")
+
+        if not categoria_id:
+            messages.error(request, "Debe seleccionar una categoría.")
+            return render(request, "finanzas/programa_pagos/movimiento_editar.html", contexto_base)
+
+        categoria = get_object_or_404(CategoriaMovimiento, pk=categoria_id, activo=True)
+
+        if not concepto:
+            messages.error(request, "El concepto es obligatorio.")
+            return render(request, "finanzas/programa_pagos/movimiento_editar.html", contexto_base)
+
+        if not fecha_programada:
+            messages.error(request, "Debe especificar la fecha programada.")
+            return render(request, "finanzas/programa_pagos/movimiento_editar.html", contexto_base)
+
+        if fecha_programada < str(programa.fecha_inicio) or fecha_programada > str(programa.fecha_fin):
+            messages.error(
+                request,
+                "La fecha programada debe estar dentro del periodo del programa "
+                f"({programa.fecha_inicio:%d/%m/%Y} - {programa.fecha_fin:%d/%m/%Y})."
+            )
+            return render(request, "finanzas/programa_pagos/movimiento_editar.html", contexto_base)
+
+        try:
+            monto = Decimal(request.POST.get("monto") or "0")
+        except InvalidOperation:
+            messages.error(request, "El monto debe ser un número válido.")
+            return render(request, "finanzas/programa_pagos/movimiento_editar.html", contexto_base)
+
+        if monto <= 0:
+            messages.error(request, "El monto debe ser mayor a cero.")
+            return render(request, "finanzas/programa_pagos/movimiento_editar.html", contexto_base)
+
+        if estatus not in MovimientoPrograma.Estatus.values:
+            messages.error(request, "Estatus no válido.")
+            return render(request, "finanzas/programa_pagos/movimiento_editar.html", contexto_base)
+
+        factura_proveedor = None
+        if factura_id:
+            factura_proveedor = get_object_or_404(FacturaProveedor, pk=factura_id)
+
+        movimiento.categoria = categoria
+        movimiento.factura_proveedor = factura_proveedor
+        movimiento.concepto = concepto
+        movimiento.fecha_programada = fecha_programada
+        movimiento.monto = monto
+        movimiento.estatus = estatus
+        movimiento.observaciones = observaciones
+        movimiento.save()
+
+        messages.success(request, "El movimiento se actualizó correctamente.")
+        return redirect("programa_detalle", pk=programa.pk)
+
+    return render(request, "finanzas/programa_pagos/movimiento_editar.html", contexto_base)
+
+
+@never_cache
+@login_required
+def movimiento_eliminar(request, pk):
+
+    movimiento = get_object_or_404(
+        MovimientoPrograma.objects.select_related("programa", "categoria"),
+        pk=pk
+    )
+    programa = movimiento.programa
+
+    if programa.estatus == ProgramaPago.Estatus.CERRADO:
+        messages.error(request, "No se pueden eliminar movimientos de un programa cerrado.")
+        return redirect("programa_detalle", pk=programa.pk)
+
+    if request.method == "POST":
+        movimiento.delete()
+        messages.success(request, "El movimiento fue eliminado.")
+        return redirect("programa_detalle", pk=programa.pk)
+
+    return render(
+        request,
+        "finanzas/programa_pagos/movimiento_eliminar.html",
+        {"movimiento": movimiento, "programa": programa}
+    )

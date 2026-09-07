@@ -1,0 +1,90 @@
+{% extends 'finanzas/base_finanzas.html' %}
+
+{% block title %}Editar Categoría - ERP FINANZAS{% endblock %}
+{% block menu_programa_pagos %}active{% endblock %}
+{% block page_title %}Editar Categoría de Movimiento{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+
+    <div class="col-lg-8">
+
+        <div class="card shadow-sm border-0">
+
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0">
+                    <i class="bi bi-tag me-2"></i>
+                    Editar categoría
+                </h5>
+            </div>
+
+            <div class="card-body">
+
+                <form method="post">
+
+                    {% csrf_token %}
+
+                    <div class="row">
+
+                        <div class="col-md-4 mb-3">
+                            <label for="codigo" class="form-label">Código</label>
+                            <input type="text" name="codigo" id="codigo" class="form-control"
+                                   maxlength="20"
+                                   value="{{ request.POST.codigo|default:categoria.codigo }}" required>
+                        </div>
+
+                        <div class="col-md-8 mb-3">
+                            <label for="nombre" class="form-label">Nombre</label>
+                            <input type="text" name="nombre" id="nombre" class="form-control"
+                                   maxlength="100"
+                                   value="{{ request.POST.nombre|default:categoria.nombre }}" required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="tipo" class="form-label">Tipo</label>
+                            <select name="tipo" id="tipo" class="form-select" required>
+                                {% for valor, texto in tipos %}
+                                    <option value="{{ valor }}"
+                                        {% if request.POST.tipo == valor or not request.POST and categoria.tipo == valor %}selected{% endif %}>
+                                        {{ texto }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6 mb-3 d-flex align-items-end">
+                            <div class="form-check">
+                                <input type="checkbox" name="activo" id="activo" class="form-check-input"
+                                       {% if request.POST.activo or not request.POST and categoria.activo %}checked{% endif %}>
+                                <label class="form-check-label" for="activo">Activo</label>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-3">
+
+                        <a href="{% url 'categorias_movimiento_lista' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>
+                            Cancelar
+                        </a>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>
+                            Guardar cambios
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

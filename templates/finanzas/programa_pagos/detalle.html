@@ -1,0 +1,246 @@
+{% extends 'finanzas/base_finanzas.html' %}
+{% load humanize %}
+
+{% block title %}Programa {{ programa.fecha_inicio|date:"d/m/Y" }} - ERP FINANZAS{% endblock %}
+{% block menu_programa_pagos %}active{% endblock %}
+{% block page_title %}Detalle del Programa de Pagos{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div>
+        <h4 class="mb-1">
+            {{ programa.fecha_inicio|date:"d/m/Y" }} - {{ programa.fecha_fin|date:"d/m/Y" }}
+        </h4>
+        <p class="text-muted mb-0">
+            {% if programa.estatus == "Cerrado" %}
+                <span class="badge bg-secondary">Cerrado</span>
+            {% else %}
+                <span class="badge bg-warning text-dark">Borrador</span>
+            {% endif %}
+        </p>
+    </div>
+
+    <div>
+
+        {% if programa.estatus != "Cerrado" %}
+            <a href="{% url 'programa_editar' programa.pk %}" class="btn btn-outline-primary me-2">
+                <i class="bi bi-pencil me-1"></i> Editar
+            </a>
+            <a href="{% url 'programa_cerrar' programa.pk %}" class="btn btn-outline-warning me-2">
+                <i class="bi bi-lock me-1"></i> Cerrar
+            </a>
+        {% endif %}
+
+        <a href="{% url 'programa_eliminar' programa.pk %}" class="btn btn-outline-danger me-2">
+            <i class="bi bi-trash me-1"></i> Eliminar
+        </a>
+
+        <a href="{% url 'programas_lista' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Regresar
+        </a>
+
+    </div>
+
+</div>
+
+{% if programa.observaciones %}
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+        <h6 class="mb-2"><i class="bi bi-info-circle me-1"></i> Observaciones</h6>
+        <p class="mb-0">{{ programa.observaciones|linebreaksbr }}</p>
+    </div>
+</div>
+{% endif %}
+
+<!-- RESUMEN -->
+
+<div class="row g-3 mb-4">
+
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body">
+                <div class="text-muted small">Saldo inicial</div>
+                <h4 class="mb-0">${{ programa.saldo_inicial|floatformat:2|intcomma }}</h4>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body">
+                <div class="text-muted small">Total ingresos</div>
+                <h4 class="mb-0 text-success">${{ total_ingresos|floatformat:2|intcomma }}</h4>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body">
+                <div class="text-muted small">Total egresos</div>
+                <h4 class="mb-0 text-danger">${{ total_egresos|floatformat:2|intcomma }}</h4>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body">
+                <div class="text-muted small">Saldo final proyectado</div>
+                <h4 class="mb-0 {% if saldo_final < 0 %}text-danger{% else %}text-success{% endif %}">
+                    ${{ saldo_final|floatformat:2|intcomma }}
+                </h4>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{% if programa.estatus != "Cerrado" %}
+<div class="mb-4">
+    <a href="{% url 'movimiento_crear' programa.pk %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-1"></i>
+        Agregar movimiento
+    </a>
+</div>
+{% endif %}
+
+<!-- INGRESOS -->
+
+<div class="card shadow-sm border-0 mb-4">
+
+    <div class="card-header bg-white">
+        <h5 class="mb-0"><i class="bi bi-arrow-down-circle text-success me-2"></i> Ingresos</h5>
+    </div>
+
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Categoría</th>
+                        <th>Concepto</th>
+                        <th>Fecha</th>
+                        <th class="text-end">Monto</th>
+                        <th>Estatus</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+
+                    {% for movimiento in ingresos %}
+                    <tr>
+                        <td>{{ movimiento.categoria.nombre }}</td>
+                        <td>{{ movimiento.concepto }}</td>
+                        <td>{{ movimiento.fecha_programada|date:"d/m/Y" }}</td>
+                        <td class="text-end">${{ movimiento.monto|floatformat:2|intcomma }}</td>
+                        <td>
+                            {% if movimiento.estatus == "Realizado" %}
+                                <span class="badge bg-success">Realizado</span>
+                            {% elif movimiento.estatus == "Cancelado" %}
+                                <span class="badge bg-secondary">Cancelado</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Programado</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="{% url 'movimiento_editar' movimiento.pk %}"
+                               class="btn btn-sm btn-outline-primary" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a href="{% url 'movimiento_eliminar' movimiento.pk %}"
+                               class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">
+                            No hay ingresos programados.
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- EGRESOS -->
+
+<div class="card shadow-sm border-0 mb-4">
+
+    <div class="card-header bg-white">
+        <h5 class="mb-0"><i class="bi bi-arrow-up-circle text-danger me-2"></i> Egresos</h5>
+    </div>
+
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Categoría</th>
+                        <th>Concepto</th>
+                        <th>Factura ligada</th>
+                        <th>Fecha</th>
+                        <th class="text-end">Monto</th>
+                        <th>Estatus</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+
+                    {% for movimiento in egresos %}
+                    <tr>
+                        <td>{{ movimiento.categoria.nombre }}</td>
+                        <td>{{ movimiento.concepto }}</td>
+                        <td>
+                            {% if movimiento.factura_proveedor %}
+                                {{ movimiento.factura_proveedor.factura }}
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ movimiento.fecha_programada|date:"d/m/Y" }}</td>
+                        <td class="text-end">${{ movimiento.monto|floatformat:2|intcomma }}</td>
+                        <td>
+                            {% if movimiento.estatus == "Realizado" %}
+                                <span class="badge bg-success">Realizado</span>
+                            {% elif movimiento.estatus == "Cancelado" %}
+                                <span class="badge bg-secondary">Cancelado</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Programado</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="{% url 'movimiento_editar' movimiento.pk %}"
+                               class="btn btn-sm btn-outline-primary" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a href="{% url 'movimiento_eliminar' movimiento.pk %}"
+                               class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">
+                            No hay egresos programados.
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
