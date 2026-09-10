@@ -16,7 +16,7 @@ from django.db import IntegrityError, transaction
 from django.shortcuts import render, redirect
 
 
-from .models import Expediente, ExpedienteDocumento, FacturaCliente, PagoCliente, FacturaProveedor, PagoProveedor, PresupuestoAnual, PresupuestoIngreso, ConceptoIngreso, PresupuestoGasto, PartidaGasto, PresupuestoIngresoMensual, PresupuestoGastoMensual, CategoriaMovimiento, ProgramaPago, MovimientoPrograma
+from .models import Expediente, ExpedienteDocumento, FacturaCliente, PagoCliente, FacturaProveedor, PagoProveedor, PresupuestoAnual, PresupuestoIngreso, ConceptoIngreso, PresupuestoGasto, PartidaGasto, PresupuestoIngresoMensual, PresupuestoGastoMensual, CategoriaMovimiento, ProgramaPago, MovimientoPrograma,CuentaBancaria, MovimientoBancario
 from .validators import validar_rfc
 
 
@@ -3635,3 +3635,466 @@ def movimiento_eliminar(request, pk):
         "finanzas/programa_pagos/movimiento_eliminar.html",
         {"movimiento": movimiento, "programa": programa}
     )
+
+# =====================================================
+# CATALOGO: CUENTAS BANCARIAS
+# =====================================================
+
+@never_cache
+@login_required
+def cuentas_bancarias_lista(request):
+    cuentas = CuentaBancaria.objects.all().order_by("banco", "alias")
+    return render(request, "finanzas/bancos/cuentas_lista.html", {"cuentas": cuentas})
+
+
+@never_cache
+@login_required
+def cuenta_bancaria_crear(request):
+
+    contexto_base = {"monedas": CuentaBancaria.Moneda.choices}
+
+    if request.method == "POST":
+
+        alias = (request.POST.get("alias") or "").strip()
+        banco = (request.POST.get("banco") or "").strip()
+        numero_cuenta = (request.POST.get("numero_cuenta") or "").strip()
+        clabe = (request.POST.get("clabe") or "").strip()
+        moneda = request.POST.get("moneda", CuentaBancaria.Moneda.MXN)
+        activa = request.POST.get("activa") == "on"
+
+        if not alias:
+            messages.error(request, "El alias es obligatorio.")
+            return render(request, "finanzas/bancos/cuenta_crear.html", contexto_base)
+
+        if not banco:
+            messages.error(request, "El banco es obligatorio.")
+            return render(request, "finanzas/bancos/cuenta_crear.html", contexto_base)
+
+        if not numero_cuenta:
+            messages.error(request, "El número de cuenta es obligatorio.")
+            return render(request, "finanzas/bancos/cuenta_crear.html", contexto_base)
+
+        if CuentaBancaria.objects.filter(numero_cuenta=numero_cuenta).exists():
+            messages.error(request, "Ya existe una cuenta registrada con ese número.")
+            return render(request, "finanzas/bancos/cuenta_crear.html", contexto_base)
+
+        if moneda not in CuentaBancaria.Moneda.values:
+            messages.error(request, "Moneda no válida.")
+            return render(request, "finanzas/bancos/cuenta_crear.html", contexto_base)
+
+        try:
+            saldo_inicial = Decimal(request.POST.get("saldo_inicial") or "0")
+        except InvalidOperation:
+            messages.error(request, "El saldo inicial debe ser un número válido.")
+            return render(request, "finanzas/bancos/cuenta_crear.html", contexto_base)
+
+        CuentaBancaria.objects.create(
+            alias=alias, banco=banco, numero_cuenta=numero_cuenta, clabe=clabe,
+            moneda=moneda, saldo_inicial=saldo_inicial, activa=activa,
+        )
+
+        messages.success(request, "La cuenta bancaria se creó correctamente.")
+        return redirect("cuentas_bancarias_lista")
+
+    return render(request, "finanzas/bancos/cuenta_crear.html", contexto_base)
+
+
+@never_cache
+@login_required
+def cuenta_bancaria_editar(request, pk):
+
+    cuenta = get_object_or_404(CuentaBancaria, pk=pk)
+    contexto_base = {"cuenta": cuenta, "monedas": CuentaBancaria.Moneda.choices}
+
+    if request.method == "POST":
+
+        alias = (request.POST.get("alias") or "").strip()
+        banco = (request.POST.get("banco") or "").strip()
+        numero_cuenta = (request.POST.get("numero_cuenta") or "").strip()
+        clabe = (request.POST.get("clabe") or "").strip()
+        moneda = request.POST.get("moneda", CuentaBancaria.Moneda.MXN)
+        activa = request.POST.get("activa") == "on"
+
+        if not alias:
+            messages.error(request, "El alias es obligatorio.")
+            return render(request, "finanzas/bancos/cuenta_editar.html", contexto_base)
+
+        if not banco:
+            messages.error(request, "El banco es obligatorio.")
+            return render(request, "finanzas/bancos/cuenta_editar.html", contexto_base)
+
+        if not numero_cuenta:
+            messages.error(request, "El número de cuenta es obligatorio.")
+            return render(request, "finanzas/bancos/cuenta_editar.html", contexto_base)
+
+        if CuentaBancaria.objects.filter(numero_cuenta=numero_cuenta).exclude(pk=pk).exists():
+            messages.error(request, "Ya existe otra cuenta registrada con ese número.")
+            return render(request, "finanzas/bancos/cuenta_editar.html", contexto_base)
+
+        if moneda not in CuentaBancaria.Moneda.values:
+            messages.error(request, "Moneda no válida.")
+            return render(request, "finanzas/bancos/cuenta_editar.html", contexto_base)
+
+        try:
+            saldo_inicial = Decimal(request.POST.get("saldo_inicial") or "0")
+        except InvalidOperation:
+            messages.error(request, "El saldo inicial debe ser un número válido.")
+            return render(request, "finanzas/bancos/cuenta_editar.html", contexto_base)
+
+        cuenta.alias = alias
+        cuenta.banco = banco
+        cuenta.numero_cuenta = numero_cuenta
+        cuenta.clabe = clabe
+        cuenta.moneda = moneda
+        cuenta.saldo_inicial = saldo_inicial
+        cuenta.activa = activa
+        cuenta.save()
+
+        messages.success(request, "La cuenta bancaria se actualizó correctamente.")
+        return redirect("cuentas_bancarias_lista")
+
+    return render(request, "finanzas/bancos/cuenta_editar.html", contexto_base)
+
+
+@never_cache
+@login_required
+def cuenta_bancaria_eliminar(request, pk):
+
+    cuenta = get_object_or_404(CuentaBancaria, pk=pk)
+
+    if request.method == "POST":
+
+        try:
+            cuenta.delete()
+        except models.ProtectedError:
+            messages.error(
+                request,
+                "No se puede eliminar esta cuenta porque ya tiene movimientos "
+                "bancarios registrados. Puedes desactivarla en su lugar."
+            )
+            return redirect("cuentas_bancarias_lista")
+
+        messages.success(request, "La cuenta bancaria fue eliminada.")
+        return redirect("cuentas_bancarias_lista")
+
+    return render(request, "finanzas/bancos/cuenta_eliminar.html", {"cuenta": cuenta})
+
+    # =====================================================
+# MOVIMIENTOS BANCARIOS
+# =====================================================
+
+@never_cache
+@login_required
+def movimientos_bancarios_lista(request):
+
+    cuenta_id = request.GET.get("cuenta", "")
+    busqueda = request.GET.get("q", "")
+    conciliado = request.GET.get("conciliado", "")
+
+    movimientos = (
+        MovimientoBancario.objects
+        .select_related("cuenta", "expediente", "factura_cliente", "factura_proveedor")
+        .all()
+    )
+
+    if cuenta_id:
+        movimientos = movimientos.filter(cuenta_id=cuenta_id)
+
+    if busqueda:
+        movimientos = movimientos.filter(
+            Q(concepto_bancario__icontains=busqueda) |
+            Q(mov__icontains=busqueda) |
+            Q(expediente__razon_social__icontains=busqueda) |
+            Q(expediente__nombres__icontains=busqueda) |
+            Q(expediente__rfc__icontains=busqueda)
+        )
+
+    if conciliado == "si":
+        movimientos = movimientos.filter(conciliado=True)
+    elif conciliado == "no":
+        movimientos = movimientos.filter(conciliado=False)
+
+    paginator = Paginator(movimientos, 25)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    return render(
+        request,
+        "finanzas/bancos/movimientos_lista.html",
+        {
+            "movimientos": page_obj,
+            "page_obj": page_obj,
+            "cuentas": CuentaBancaria.objects.filter(activa=True).order_by("banco", "alias"),
+            "cuenta_actual": cuenta_id,
+            "busqueda": busqueda,
+            "conciliado_actual": conciliado,
+        }
+    )
+
+
+@never_cache
+@login_required
+def movimiento_bancario_crear(request):
+
+    cuentas = CuentaBancaria.objects.filter(activa=True).order_by("banco", "alias")
+    expedientes = Expediente.objects.all().order_by("razon_social", "nombres")
+    facturas_cliente = (
+        FacturaCliente.objects
+        .exclude(estatus=FacturaCliente.Estatus.CANCELADA)
+        .select_related("expediente")
+        .order_by("-fecha_factura")
+    )
+    facturas_proveedor = (
+        FacturaProveedor.objects
+        .exclude(estatus=FacturaProveedor.Estatus.CANCELADA)
+        .select_related("expediente")
+        .order_by("-fecha_factura")
+    )
+
+    contexto_base = {
+        "cuentas": cuentas,
+        "expedientes": expedientes,
+        "facturas_cliente": facturas_cliente,
+        "facturas_proveedor": facturas_proveedor,
+    }
+
+    if request.method == "POST":
+
+        cuenta_id = request.POST.get("cuenta")
+        fecha = request.POST.get("fecha")
+        concepto_bancario = (request.POST.get("concepto_bancario") or "").strip()
+        mov = (request.POST.get("mov") or "").strip()
+        expediente_id = request.POST.get("expediente") or None
+        factura_cliente_id = request.POST.get("factura_cliente") or None
+        factura_proveedor_id = request.POST.get("factura_proveedor") or None
+        comentarios = request.POST.get("comentarios", "")
+
+        if not cuenta_id:
+            messages.error(request, "Debe seleccionar una cuenta bancaria.")
+            return render(request, "finanzas/bancos/movimiento_crear.html", contexto_base)
+
+        cuenta = get_object_or_404(CuentaBancaria, pk=cuenta_id, activa=True)
+
+        if not fecha:
+            messages.error(request, "Debe especificar la fecha del movimiento.")
+            return render(request, "finanzas/bancos/movimiento_crear.html", contexto_base)
+
+        if not concepto_bancario:
+            messages.error(request, "El concepto bancario es obligatorio.")
+            return render(request, "finanzas/bancos/movimiento_crear.html", contexto_base)
+
+        try:
+            cargo = Decimal(request.POST.get("cargo") or "0")
+            abono = Decimal(request.POST.get("abono") or "0")
+            saldo = Decimal(request.POST.get("saldo") or "0")
+        except InvalidOperation:
+            messages.error(request, "Cargo, abono y saldo deben ser números válidos.")
+            return render(request, "finanzas/bancos/movimiento_crear.html", contexto_base)
+
+        if cargo < 0 or abono < 0:
+            messages.error(request, "Cargo y abono no pueden ser negativos.")
+            return render(request, "finanzas/bancos/movimiento_crear.html", contexto_base)
+
+        if cargo > 0 and abono > 0:
+            messages.error(request, "Un movimiento no puede tener cargo y abono al mismo tiempo.")
+            return render(request, "finanzas/bancos/movimiento_crear.html", contexto_base)
+
+        if cargo == 0 and abono == 0:
+            messages.error(request, "Debe capturar un cargo o un abono.")
+            return render(request, "finanzas/bancos/movimiento_crear.html", contexto_base)
+
+        if factura_cliente_id and abono <= 0:
+            messages.error(request, "Una factura de cliente solo puede ligarse a un movimiento de abono (cobro).")
+            return render(request, "finanzas/bancos/movimiento_crear.html", contexto_base)
+
+        if factura_proveedor_id and cargo <= 0:
+            messages.error(request, "Una factura de proveedor solo puede ligarse a un movimiento de cargo (pago).")
+            return render(request, "finanzas/bancos/movimiento_crear.html", contexto_base)
+
+        if factura_cliente_id and factura_proveedor_id:
+            messages.error(request, "Un movimiento no puede ligarse a una factura de cliente y de proveedor a la vez.")
+            return render(request, "finanzas/bancos/movimiento_crear.html", contexto_base)
+
+        monto_factura_raw = request.POST.get("monto_factura")
+        monto_factura = None
+        if monto_factura_raw:
+            try:
+                monto_factura = Decimal(monto_factura_raw)
+            except InvalidOperation:
+                messages.error(request, "El monto de factura debe ser un número válido.")
+                return render(request, "finanzas/bancos/movimiento_crear.html", contexto_base)
+
+        expediente = get_object_or_404(Expediente, pk=expediente_id) if expediente_id else None
+        factura_cliente = get_object_or_404(FacturaCliente, pk=factura_cliente_id) if factura_cliente_id else None
+        factura_proveedor = get_object_or_404(FacturaProveedor, pk=factura_proveedor_id) if factura_proveedor_id else None
+
+        MovimientoBancario.objects.create(
+            cuenta=cuenta,
+            fecha=fecha,
+            concepto_bancario=concepto_bancario,
+            mov=mov,
+            cargo=cargo,
+            abono=abono,
+            saldo=saldo,
+            expediente=expediente,
+            factura_cliente=factura_cliente,
+            factura_proveedor=factura_proveedor,
+            monto_factura=monto_factura,
+            comentarios=comentarios,
+        )
+
+        messages.success(request, "El movimiento bancario se registró correctamente.")
+        return redirect("movimientos_bancarios_lista")
+
+    return render(request, "finanzas/bancos/movimiento_crear.html", contexto_base)
+
+
+@never_cache
+@login_required
+def movimiento_bancario_editar(request, pk):
+
+    movimiento = get_object_or_404(
+        MovimientoBancario.objects.select_related("cuenta", "expediente", "factura_cliente", "factura_proveedor"),
+        pk=pk
+    )
+
+    cuentas = CuentaBancaria.objects.filter(activa=True).order_by("banco", "alias")
+    expedientes = Expediente.objects.all().order_by("razon_social", "nombres")
+    facturas_cliente = (
+        FacturaCliente.objects
+        .exclude(estatus=FacturaCliente.Estatus.CANCELADA)
+        .select_related("expediente")
+        .order_by("-fecha_factura")
+    )
+    facturas_proveedor = (
+        FacturaProveedor.objects
+        .exclude(estatus=FacturaProveedor.Estatus.CANCELADA)
+        .select_related("expediente")
+        .order_by("-fecha_factura")
+    )
+
+    contexto_base = {
+        "movimiento": movimiento,
+        "cuentas": cuentas,
+        "expedientes": expedientes,
+        "facturas_cliente": facturas_cliente,
+        "facturas_proveedor": facturas_proveedor,
+    }
+
+    if request.method == "POST":
+
+        cuenta_id = request.POST.get("cuenta")
+        fecha = request.POST.get("fecha")
+        concepto_bancario = (request.POST.get("concepto_bancario") or "").strip()
+        mov = (request.POST.get("mov") or "").strip()
+        expediente_id = request.POST.get("expediente") or None
+        factura_cliente_id = request.POST.get("factura_cliente") or None
+        factura_proveedor_id = request.POST.get("factura_proveedor") or None
+        comentarios = request.POST.get("comentarios", "")
+        conciliado = request.POST.get("conciliado") == "on"
+
+        if not cuenta_id:
+            messages.error(request, "Debe seleccionar una cuenta bancaria.")
+            return render(request, "finanzas/bancos/movimiento_editar.html", contexto_base)
+
+        cuenta = get_object_or_404(CuentaBancaria, pk=cuenta_id, activa=True)
+
+        if not fecha:
+            messages.error(request, "Debe especificar la fecha del movimiento.")
+            return render(request, "finanzas/bancos/movimiento_editar.html", contexto_base)
+
+        if not concepto_bancario:
+            messages.error(request, "El concepto bancario es obligatorio.")
+            return render(request, "finanzas/bancos/movimiento_editar.html", contexto_base)
+
+        try:
+            cargo = Decimal(request.POST.get("cargo") or "0")
+            abono = Decimal(request.POST.get("abono") or "0")
+            saldo = Decimal(request.POST.get("saldo") or "0")
+        except InvalidOperation:
+            messages.error(request, "Cargo, abono y saldo deben ser números válidos.")
+            return render(request, "finanzas/bancos/movimiento_editar.html", contexto_base)
+
+        if cargo < 0 or abono < 0:
+            messages.error(request, "Cargo y abono no pueden ser negativos.")
+            return render(request, "finanzas/bancos/movimiento_editar.html", contexto_base)
+
+        if cargo > 0 and abono > 0:
+            messages.error(request, "Un movimiento no puede tener cargo y abono al mismo tiempo.")
+            return render(request, "finanzas/bancos/movimiento_editar.html", contexto_base)
+
+        if cargo == 0 and abono == 0:
+            messages.error(request, "Debe capturar un cargo o un abono.")
+            return render(request, "finanzas/bancos/movimiento_editar.html", contexto_base)
+
+        if factura_cliente_id and abono <= 0:
+            messages.error(request, "Una factura de cliente solo puede ligarse a un movimiento de abono (cobro).")
+            return render(request, "finanzas/bancos/movimiento_editar.html", contexto_base)
+
+        if factura_proveedor_id and cargo <= 0:
+            messages.error(request, "Una factura de proveedor solo puede ligarse a un movimiento de cargo (pago).")
+            return render(request, "finanzas/bancos/movimiento_editar.html", contexto_base)
+
+        if factura_cliente_id and factura_proveedor_id:
+            messages.error(request, "Un movimiento no puede ligarse a una factura de cliente y de proveedor a la vez.")
+            return render(request, "finanzas/bancos/movimiento_editar.html", contexto_base)
+
+        monto_factura_raw = request.POST.get("monto_factura")
+        monto_factura = None
+        if monto_factura_raw:
+            try:
+                monto_factura = Decimal(monto_factura_raw)
+            except InvalidOperation:
+                messages.error(request, "El monto de factura debe ser un número válido.")
+                return render(request, "finanzas/bancos/movimiento_editar.html", contexto_base)
+
+        expediente = get_object_or_404(Expediente, pk=expediente_id) if expediente_id else None
+        factura_cliente = get_object_or_404(FacturaCliente, pk=factura_cliente_id) if factura_cliente_id else None
+        factura_proveedor = get_object_or_404(FacturaProveedor, pk=factura_proveedor_id) if factura_proveedor_id else None
+
+        movimiento.cuenta = cuenta
+        movimiento.fecha = fecha
+        movimiento.concepto_bancario = concepto_bancario
+        movimiento.mov = mov
+        movimiento.cargo = cargo
+        movimiento.abono = abono
+        movimiento.saldo = saldo
+        movimiento.expediente = expediente
+        movimiento.factura_cliente = factura_cliente
+        movimiento.factura_proveedor = factura_proveedor
+        movimiento.monto_factura = monto_factura
+        movimiento.comentarios = comentarios
+        movimiento.conciliado = conciliado
+        movimiento.save()
+
+        messages.success(request, "El movimiento bancario se actualizó correctamente.")
+        return redirect("movimientos_bancarios_lista")
+
+    return render(request, "finanzas/bancos/movimiento_editar.html", contexto_base)
+
+
+@login_required
+@require_POST
+def movimiento_bancario_toggle_conciliado(request, pk):
+
+    movimiento = get_object_or_404(MovimientoBancario, pk=pk)
+    movimiento.conciliado = not movimiento.conciliado
+    movimiento.save(update_fields=["conciliado"])
+
+    estado = "conciliado" if movimiento.conciliado else "marcado como pendiente"
+    messages.success(request, f"El movimiento fue {estado}.")
+
+    return redirect("movimientos_bancarios_lista")
+
+
+@never_cache
+@login_required
+def movimiento_bancario_eliminar(request, pk):
+
+    movimiento = get_object_or_404(MovimientoBancario, pk=pk)
+
+    if request.method == "POST":
+        movimiento.delete()
+        messages.success(request, "El movimiento bancario fue eliminado.")
+        return redirect("movimientos_bancarios_lista")
+
+    return render(request, "finanzas/bancos/movimiento_eliminar.html", {"movimiento": movimiento})

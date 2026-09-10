@@ -685,7 +685,6 @@ class PresupuestoGastoMensual(models.Model):
     def __str__(self):
         return f"{self.presupuesto_gasto} - Mes {self.mes}: ${self.monto}"
     
-from decimal import Decimal
 
 class CategoriaMovimiento(models.Model):
 
@@ -801,3 +800,84 @@ class MovimientoPrograma(models.Model):
 
     def __str__(self):
         return f"{self.concepto} - ${self.monto}"
+
+class CuentaBancaria(models.Model):
+
+    class Moneda(models.TextChoices):
+        MXN = "MXN", "Peso Mexicano"
+        USD = "USD", "Dólar Americano"
+
+    alias = models.CharField(max_length=100, verbose_name="Alias")
+    banco = models.CharField(max_length=100, verbose_name="Banco")
+    numero_cuenta = models.CharField(max_length=30, verbose_name="Número de cuenta")
+    clabe = models.CharField(max_length=18, blank=True, verbose_name="CLABE")
+    moneda = models.CharField(max_length=3, choices=Moneda.choices, default=Moneda.MXN, verbose_name="Moneda")
+    saldo_inicial = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name="Saldo inicial")
+    activa = models.BooleanField(default=True, verbose_name="Activa")
+
+    class Meta:
+        verbose_name = "Cuenta bancaria"
+        verbose_name_plural = "Cuentas bancarias"
+        ordering = ["banco", "alias"]
+        constraints = [
+            models.UniqueConstraint(fields=["numero_cuenta"], name="unique_numero_cuenta")
+        ]
+
+    def __str__(self):
+        return f"{self.alias} - {self.banco}"
+
+    @property
+    def saldo_actual(self):
+        movimientos = self.movimientos.all()
+        total_abonos = movimientos.aggregate(t=models.Sum("abono"))["t"] or Decimal("0.00")
+        total_cargos = movimientos.aggregate(t=models.Sum("cargo"))["t"] or Decimal("0.00")
+        return self.saldo_inicial + total_abonos - total_cargos
+
+
+class MovimientoBancario(models.Model):
+
+    cuenta = models.ForeignKey(
+        CuentaBancaria, on_delete=models.PROTECT, related_name="movimientos", verbose_name="Cuenta bancaria"
+    )
+    fecha = models.DateField(verbose_name="Fecha")
+    concepto_bancario = models.CharField(max_length=255, verbose_name="Concepto bancario")
+    mov = models.CharField(max_length=50, blank=True, verbose_name="Mov")
+
+    cargo = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name="Cargo (-)")
+    abono = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name="Abono (+)")
+    saldo = models.DecimalField(max_digits=14, decimal_places=2, verbose_name="Saldo (=)")
+
+    expediente = models.ForeignKey(
+        "Expediente", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="movimientos_bancarios", verbose_name="RFC / Proveedor o Cliente"
+    )
+    factura_cliente = models.ForeignKey(
+        "FacturaCliente", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="movimientos_bancarios", verbose_name="Factura de cliente relacionada"
+    )
+    factura_proveedor = models.ForeignKey(
+        "FacturaProveedor", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="movimientos_bancarios", verbose_name="Factura de proveedor relacionada"
+    )
+    monto_factura = models.DecimalField(
+        max_digits=14, decimal_places=2, null=True, blank=True, verbose_name="Monto factura"
+    )
+
+    comentarios = models.TextField(blank=True, verbose_name="Comentarios")
+    conciliado = models.BooleanField(default=False, verbose_name="Conciliado")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación")
+
+    class Meta:
+        verbose_name = "Movimiento bancario"
+        verbose_name_plural = "Movimientos bancarios"
+        ordering = ["-fecha", "-id"]
+
+    def __str__(self):
+        return f"{self.fecha} - {self.concepto_bancario}"
+
+    @property
+    def diferencia(self):
+        if self.monto_factura is None:
+            return None
+        monto_movimiento = self.abono if self.abono else self.cargo
+        return monto_movimiento - self.monto_factura

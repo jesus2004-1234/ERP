@@ -1,0 +1,114 @@
+{% extends 'finanzas/base_finanzas.html' %}
+{% load humanize %}
+
+{% block title %}Cuentas Bancarias - ERP FINANZAS{% endblock %}
+{% block menu_bancos %}active{% endblock %}
+{% block page_title %}Cuentas Bancarias{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div>
+        <h4 class="mb-1">Cuentas Bancarias</h4>
+        <p class="text-muted mb-0">
+            Catálogo de cuentas usadas en la conciliación bancaria.
+        </p>
+    </div>
+
+    <div>
+        <a href="{% url 'movimientos_bancarios_lista' %}" class="btn btn-outline-secondary me-2">
+            <i class="bi bi-arrow-left me-1"></i>
+            Movimientos
+        </a>
+        <a href="{% url 'cuenta_bancaria_crear' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i>
+            Nueva cuenta
+        </a>
+    </div>
+
+</div>
+
+<div class="card shadow-sm border-0">
+
+    <div class="card-body p-0">
+
+        <div class="table-responsive">
+
+            <table class="table table-hover align-middle mb-0">
+
+                <thead class="table-dark">
+                    <tr>
+                        <th>Alias</th>
+                        <th>Banco</th>
+                        <th>Número de cuenta</th>
+                        <th>Moneda</th>
+                        <th class="text-end">Saldo actual</th>
+                        <th>Estatus</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for cuenta in cuentas %}
+
+                    <tr>
+
+                        <td><strong>{{ cuenta.alias }}</strong></td>
+                        <td>{{ cuenta.banco }}</td>
+                        <td>{{ cuenta.numero_cuenta }}</td>
+                        <td>{{ cuenta.moneda }}</td>
+
+                        <td class="text-end">
+                            <span class="{% if cuenta.saldo_actual < 0 %}text-danger{% else %}text-success{% endif %} fw-semibold">
+                                ${{ cuenta.saldo_actual|floatformat:2|intcomma }}
+                            </span>
+                        </td>
+
+                        <td>
+                            {% if cuenta.activa %}
+                                <span class="badge bg-success">Activa</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inactiva</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="text-end">
+
+                            <a href="{% url 'cuenta_bancaria_editar' cuenta.pk %}"
+                               class="btn btn-sm btn-outline-primary" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+
+                            <a href="{% url 'cuenta_bancaria_eliminar' cuenta.pk %}"
+                               class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                <i class="bi bi-trash"></i>
+                            </a>
+
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">
+                            <i class="bi bi-bank fs-3 d-block mb-2"></i>
+                            No hay cuentas bancarias registradas.
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

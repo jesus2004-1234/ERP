@@ -1,0 +1,237 @@
+{% extends 'finanzas/base_finanzas.html' %}
+{% load humanize %}
+
+{% block title %}Bancos y Conciliaciones - ERP FINANZAS{% endblock %}
+{% block menu_bancos %}active{% endblock %}
+{% block page_title %}Bancos y Conciliaciones{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div>
+        <h4 class="mb-1">Movimientos Bancarios</h4>
+        <p class="text-muted mb-0">
+            Conciliación de movimientos contra facturas de clientes y proveedores.
+        </p>
+    </div>
+
+    <div>
+        <a href="{% url 'cuentas_bancarias_lista' %}" class="btn btn-outline-secondary me-2">
+            <i class="bi bi-bank me-1"></i>
+            Cuentas
+        </a>
+        <a href="{% url 'movimiento_bancario_crear' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i>
+            Nuevo movimiento
+        </a>
+    </div>
+
+</div>
+
+<div class="card shadow-sm border-0 mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-2">
+
+            <div class="col-md-3">
+                <select name="cuenta" class="form-select">
+                    <option value="">Todas las cuentas</option>
+                    {% for cuenta in cuentas %}
+                        <option value="{{ cuenta.pk }}" {% if cuenta_actual == cuenta.pk|stringformat:"s" %}selected{% endif %}>
+                            {{ cuenta.alias }} - {{ cuenta.banco }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <select name="conciliado" class="form-select">
+                    <option value="">Todos los estatus</option>
+                    <option value="si" {% if conciliado_actual == "si" %}selected{% endif %}>Conciliados</option>
+                    <option value="no" {% if conciliado_actual == "no" %}selected{% endif %}>Pendientes</option>
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <input type="text" name="q" class="form-control"
+                       placeholder="Buscar concepto, movimiento, RFC o razón social..."
+                       value="{{ busqueda }}">
+            </div>
+
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-search me-1"></i>
+                    Buscar
+                </button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0">
+
+    <div class="card-body p-0">
+
+        <div class="table-responsive">
+
+            <table class="table table-hover table-sm align-middle mb-0">
+
+                <thead class="table-dark">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Concepto bancario</th>
+                        <th>Movimiento</th>
+                        <th class="text-end">Cargo (-)</th>
+                        <th class="text-end">Abono (+)</th>
+                        <th class="text-end">Saldo (=)</th>
+                        <th>Factura relacionada</th>
+                        <th>RFC / Proveedor o Cliente</th>
+                        <th class="text-end">Monto Factura</th>
+                        <th class="text-end">Diferencia</th>
+                        <th>Comentarios</th>
+                        <th class="text-center">Conciliado</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for movimiento in movimientos %}
+
+                    <tr>
+
+                        <td>{{ movimiento.fecha|date:"d/m/Y" }}</td>
+                        <td>{{ movimiento.concepto_bancario }}</td>
+                        <td>{{ movimiento.mov|default:"—" }}</td>
+
+                        <td class="text-end">
+                            {% if movimiento.cargo %}
+                                <span class="text-danger">${{ movimiento.cargo|floatformat:2|intcomma }}</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="text-end">
+                            {% if movimiento.abono %}
+                                <span class="text-success">${{ movimiento.abono|floatformat:2|intcomma }}</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="text-end">${{ movimiento.saldo|floatformat:2|intcomma }}</td>
+
+                        <td>
+                            {% if movimiento.factura_cliente %}
+                                {{ movimiento.factura_cliente.factura }}
+                            {% elif movimiento.factura_proveedor %}
+                                {{ movimiento.factura_proveedor.factura }}
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if movimiento.expediente %}
+                                {{ movimiento.expediente.nombre_completo }}
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="text-end">
+                            {% if movimiento.monto_factura %}
+                                ${{ movimiento.monto_factura|floatformat:2|intcomma }}
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="text-end">
+                            {% if movimiento.diferencia is not None %}
+                                <span class="{% if movimiento.diferencia != 0 %}text-danger fw-semibold{% else %}text-success{% endif %}">
+                                    ${{ movimiento.diferencia|floatformat:2|intcomma }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if movimiento.comentarios %}
+                                <span title="{{ movimiento.comentarios }}">
+                                    {{ movimiento.comentarios|truncatechars:30 }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="text-center">
+                            <form method="post" action="{% url 'movimiento_bancario_toggle_conciliado' movimiento.pk %}">
+                                {% csrf_token %}
+                                <button type="submit"
+                                        class="btn btn-sm {% if movimiento.conciliado %}btn-success{% else %}btn-outline-secondary{% endif %}"
+                                        title="{% if movimiento.conciliado %}Marcar como pendiente{% else %}Marcar como conciliado{% endif %}">
+                                    <i class="bi bi-{% if movimiento.conciliado %}check-circle-fill{% else %}circle{% endif %}"></i>
+                                </button>
+                            </form>
+                        </td>
+
+                        <td class="text-end">
+                            <a href="{% url 'movimiento_bancario_editar' movimiento.pk %}"
+                               class="btn btn-sm btn-outline-primary" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a href="{% url 'movimiento_bancario_eliminar' movimiento.pk %}"
+                               class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+                        <td colspan="13" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                            No hay movimientos bancarios registrados.
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% if page_obj.has_other_pages %}
+<nav class="mt-3">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&cuenta={{ cuenta_actual }}&conciliado={{ conciliado_actual }}&q={{ busqueda }}">Anterior</a>
+            </li>
+        {% endif %}
+        <li class="page-item disabled">
+            <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+        </li>
+        {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}&cuenta={{ cuenta_actual }}&conciliado={{ conciliado_actual }}&q={{ busqueda }}">Siguiente</a>
+            </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+{% endblock %}

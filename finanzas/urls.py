@@ -64,5 +64,14 @@ urlpatterns = [
     path("programa_pagos/<int:pk>/movimientos/crear/", views.movimiento_crear, name="movimiento_crear"),
     path("programa_pagos/movimientos/<int:pk>/editar/", views.movimiento_editar, name="movimiento_editar"),
     path("programa_pagos/movimientos/<int:pk>/eliminar/", views.movimiento_eliminar, name="movimiento_eliminar"),
+    path("bancos/cuentas/", views.cuentas_bancarias_lista, name="cuentas_bancarias_lista"),
+    path("bancos/cuentas/crear/", views.cuenta_bancaria_crear, name="cuenta_bancaria_crear"),
+    path("bancos/cuentas/<int:pk>/editar/", views.cuenta_bancaria_editar, name="cuenta_bancaria_editar"),
+    path("bancos/cuentas/<int:pk>/eliminar/", views.cuenta_bancaria_eliminar, name="cuenta_bancaria_eliminar"),
+    path("bancos/", views.movimientos_bancarios_lista, name="movimientos_bancarios_lista"),
+    path("bancos/movimientos/crear/", views.movimiento_bancario_crear, name="movimiento_bancario_crear"),
+    path("bancos/movimientos/<int:pk>/editar/", views.movimiento_bancario_editar, name="movimiento_bancario_editar"),
+    path("bancos/movimientos/<int:pk>/eliminar/", views.movimiento_bancario_eliminar, name="movimiento_bancario_eliminar"),
+    path("bancos/movimientos/<int:pk>/toggle/", views.movimiento_bancario_toggle_conciliado, name="movimiento_bancario_toggle_conciliado"),
 ]
     

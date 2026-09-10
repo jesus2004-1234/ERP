@@ -1,0 +1,183 @@
+{% extends 'finanzas/base_finanzas.html' %}
+
+{% block title %}Nueva Cuenta Bancaria - ERP FINANZAS{% endblock %}
+{% block menu_bancos %}active{% endblock %}
+{% block page_title %}Nueva Cuenta Bancaria{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+
+        <div class="card shadow-sm border-0">
+
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0">
+                    <i class="bi bi-bank me-2"></i>
+                    Datos de la cuenta
+                </h5>
+            </div>
+
+            <div class="card-body">
+
+                <form method="post" novalidate>
+
+                    {% csrf_token %}
+
+                    <div class="row">
+
+                        <div class="col-md-6 mb-3">
+                            <label for="alias" class="form-label">
+                                Alias
+                            </label>
+
+                            <input type="text"
+                                   name="alias"
+                                   id="alias"
+                                   class="form-control"
+                                   maxlength="100"
+                                   value="{{ request.POST.alias|default:'' }}"
+                                   placeholder="Ej. Cuenta Operativa BBVA"
+                                   required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="banco" class="form-label">
+                                Banco
+                            </label>
+
+                            <input type="text"
+                                   name="banco"
+                                   id="banco"
+                                   class="form-control"
+                                   maxlength="100"
+                                   value="{{ request.POST.banco|default:'' }}"
+                                   placeholder="Ej. BBVA"
+                                   required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="numero_cuenta" class="form-label">
+                                Número de cuenta
+                            </label>
+
+                            <input type="text"
+                                   name="numero_cuenta"
+                                   id="numero_cuenta"
+                                   class="form-control"
+                                   maxlength="30"
+                                   inputmode="numeric"
+                                   value="{{ request.POST.numero_cuenta|default:'' }}"
+                                   required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="clabe" class="form-label">
+                                CLABE
+                                <span class="text-muted">(opcional)</span>
+                            </label>
+
+                            <input type="text"
+                                   name="clabe"
+                                   id="clabe"
+                                   class="form-control"
+                                   maxlength="18"
+                                   inputmode="numeric"
+                                   pattern="[0-9]{18}"
+                                   value="{{ request.POST.clabe|default:'' }}"
+                                   placeholder="18 dígitos">
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="moneda" class="form-label">
+                                Moneda
+                            </label>
+
+                            <select name="moneda"
+                                    id="moneda"
+                                    class="form-select"
+                                    required>
+
+                                {% for valor, texto in monedas %}
+                                    <option value="{{ valor }}"
+                                        {% if request.POST.moneda == valor or not request.POST and valor == "MXN" %}
+                                            selected
+                                        {% endif %}>
+                                        {{ texto }}
+                                    </option>
+                                {% endfor %}
+
+                            </select>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="saldo_inicial" class="form-label">
+                                Saldo inicial
+                            </label>
+
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+
+                                <input type="number"
+                                       name="saldo_inicial"
+                                       id="saldo_inicial"
+                                       class="form-control"
+                                       step="0.01"
+                                       min="0"
+                                       value="{{ request.POST.saldo_inicial|default:'0.00' }}"
+                                       required>
+                            </div>
+
+                            <div class="form-text">
+                                Saldo con el que iniciará el control de la cuenta.
+                            </div>
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <div class="form-check">
+                                <input type="checkbox"
+                                       name="activa"
+                                       id="activa"
+                                       class="form-check-input"
+                                       {% if request.POST.activa or not request.POST %}
+                                           checked
+                                       {% endif %}>
+
+                                <label class="form-check-label" for="activa">
+                                    Cuenta activa
+                                </label>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-3">
+
+                        <a href="{% url 'cuentas_bancarias_lista' %}"
+                           class="btn btn-outline-secondary">
+
+                            <i class="bi bi-arrow-left me-1"></i>
+                            Cancelar
+
+                        </a>
+
+                        <button type="submit"
+                                class="btn btn-primary">
+
+                            <i class="bi bi-check-lg me-1"></i>
+                            Guardar cuenta
+
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}

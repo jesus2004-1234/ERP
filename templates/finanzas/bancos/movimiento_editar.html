@@ -1,0 +1,209 @@
+{% extends 'finanzas/base_finanzas.html' %}
+
+{% block title %}Editar Movimiento Bancario - ERP FINANZAS{% endblock %}
+{% block menu_bancos %}active{% endblock %}
+{% block page_title %}Editar Movimiento Bancario{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+
+    <div class="col-lg-9">
+
+        <div class="mb-4">
+            <a href="{% url 'movimientos_bancarios_lista' %}" class="text-decoration-none">
+                <i class="bi bi-arrow-left me-1"></i>
+                Regresar al listado
+            </a>
+        </div>
+
+        <div class="card shadow-sm border-0">
+
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0">
+                    <i class="bi bi-bank me-2"></i>
+                    Editar movimiento
+                </h5>
+            </div>
+
+            <div class="card-body">
+
+                <form method="post">
+
+                    {% csrf_token %}
+
+                    <div class="row">
+
+                        <div class="col-md-6 mb-3">
+                            <label for="cuenta" class="form-label">Cuenta bancaria</label>
+                            <select name="cuenta" id="cuenta" class="form-select" required>
+                                {% for cuenta in cuentas %}
+                                    <option value="{{ cuenta.pk }}"
+                                        {% if request.POST.cuenta == cuenta.pk|stringformat:"s" or not request.POST and movimiento.cuenta_id == cuenta.pk %}selected{% endif %}>
+                                        {{ cuenta.alias }} - {{ cuenta.banco }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-3 mb-3">
+                            <label for="fecha" class="form-label">Fecha</label>
+                            <input type="date" name="fecha" id="fecha" class="form-control"
+                                   value="{% firstof request.POST.fecha movimiento.fecha|date:'Y-m-d' %}" required>
+                        </div>
+
+                        <div class="col-md-3 mb-3">
+                            <label for="mov" class="form-label">Mov</label>
+                            <input type="text" name="mov" id="mov" class="form-control"
+                                   maxlength="50" value="{{ request.POST.mov|default:movimiento.mov }}">
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <label for="concepto_bancario" class="form-label">Concepto bancario</label>
+                            <input type="text" name="concepto_bancario" id="concepto_bancario" class="form-control"
+                                   maxlength="255"
+                                   value="{{ request.POST.concepto_bancario|default:movimiento.concepto_bancario }}" required>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label for="cargo" class="form-label">Cargo (-)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" name="cargo" id="cargo" class="form-control"
+                                       min="0" step="0.01" value="{{ request.POST.cargo|default:movimiento.cargo }}">
+                            </div>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label for="abono" class="form-label">Abono (+)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" name="abono" id="abono" class="form-control"
+                                       min="0" step="0.01" value="{{ request.POST.abono|default:movimiento.abono }}">
+                            </div>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label for="saldo" class="form-label">Saldo (=)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" name="saldo" id="saldo" class="form-control"
+                                       step="0.01" value="{{ request.POST.saldo|default:movimiento.saldo }}" required>
+                            </div>
+                        </div>
+
+                        <div class="col-12"><hr></div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="factura_cliente" class="form-label">Factura de cliente (abono)</label>
+                            <select name="factura_cliente" id="factura_cliente" class="form-select">
+                                <option value="">Ninguna</option>
+                                {% for factura in facturas_cliente %}
+                                    <option value="{{ factura.pk }}"
+                                        data-monto="{{ factura.total }}"
+                                        {% if request.POST.factura_cliente == factura.pk|stringformat:"s" or not request.POST and movimiento.factura_cliente_id == factura.pk %}selected{% endif %}>
+                                        {{ factura.factura }} - {{ factura.expediente.nombre_completo }} (${{ factura.total|floatformat:2 }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="factura_proveedor" class="form-label">Factura de proveedor (cargo)</label>
+                            <select name="factura_proveedor" id="factura_proveedor" class="form-select">
+                                <option value="">Ninguna</option>
+                                {% for factura in facturas_proveedor %}
+                                    <option value="{{ factura.pk }}"
+                                        data-monto="{{ factura.total }}"
+                                        {% if request.POST.factura_proveedor == factura.pk|stringformat:"s" or not request.POST and movimiento.factura_proveedor_id == factura.pk %}selected{% endif %}>
+                                        {{ factura.factura }} - {{ factura.expediente.nombre_completo }} (${{ factura.total|floatformat:2 }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="expediente" class="form-label">RFC / Proveedor o Cliente</label>
+                            <select name="expediente" id="expediente" class="form-select">
+                                <option value="">Ninguno</option>
+                                {% for expediente in expedientes %}
+                                    <option value="{{ expediente.pk }}"
+                                        {% if request.POST.expediente == expediente.pk|stringformat:"s" or not request.POST and movimiento.expediente_id == expediente.pk %}selected{% endif %}>
+                                        {{ expediente.nombre_completo }}{% if expediente.rfc %} ({{ expediente.rfc }}){% endif %}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="monto_factura" class="form-label">Monto Factura</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" name="monto_factura" id="monto_factura" class="form-control"
+                                       step="0.01"
+                                       value="{{ request.POST.monto_factura|default:movimiento.monto_factura|default_if_none:'' }}">
+                            </div>
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <label for="comentarios" class="form-label">Comentarios</label>
+                            <textarea name="comentarios" id="comentarios" class="form-control"
+                                      rows="2">{{ request.POST.comentarios|default:movimiento.comentarios }}</textarea>
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" name="conciliado" id="conciliado" class="form-check-input"
+                                       {% if request.POST.conciliado or not request.POST and movimiento.conciliado %}checked{% endif %}>
+                                <label class="form-check-label" for="conciliado">Conciliado</label>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-3">
+
+                        <a href="{% url 'movimiento_bancario_eliminar' movimiento.pk %}" class="btn btn-outline-danger">
+                            <i class="bi bi-trash me-1"></i>
+                            Eliminar
+                        </a>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>
+                            Guardar cambios
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var montoFactura = document.getElementById('monto_factura');
+        var selectCliente = document.getElementById('factura_cliente');
+        var selectProveedor = document.getElementById('factura_proveedor');
+
+        function autocompletar(select) {
+            select.addEventListener('change', function () {
+                var opcion = select.options[select.selectedIndex];
+                var monto = opcion.getAttribute('data-monto');
+                if (monto) {
+                    montoFactura.value = monto;
+                }
+            });
+        }
+
+        autocompletar(selectCliente);
+        autocompletar(selectProveedor);
+    });
+</script>
+
+{% endblock %}

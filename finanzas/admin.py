@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Expediente, ExpedienteDocumento, FacturaCliente, PagoCliente, FacturaProveedor, PagoProveedor, PresupuestoAnual, ConceptoIngreso, PartidaGasto,PresupuestoIngreso, PresupuestoGasto, PresupuestoIngresoMensual, PresupuestoGastoMensual
+from .models import Expediente, ExpedienteDocumento, FacturaCliente, PagoCliente, FacturaProveedor, PagoProveedor, PresupuestoAnual, ConceptoIngreso, PartidaGasto,PresupuestoIngreso, PresupuestoGasto, PresupuestoIngresoMensual, PresupuestoGastoMensual, ProgramaPago
 
 
 @admin.register(Expediente)
@@ -238,3 +238,10 @@ class PresupuestoAnualAdmin(admin.ModelAdmin):
     ordering = ("-ejercicio",)
     readonly_fields = ("fecha_creacion", "fecha_actualizacion")
     inlines = [PresupuestoIngresoReadOnlyInline, PresupuestoGastoReadOnlyInline]
+
+@admin.register(ProgramaPago)
+class ProgramaPagoAdmin(admin.ModelAdmin):
+    list_display = ("fecha_inicio", "fecha_fin","saldo_inicial", "estatus")
+    list_filter = ("estatus",)
+    ordering = ("-fecha_inicio",)
+    readonly_fields = ("fecha_creacion", "fecha_actualizacion")
