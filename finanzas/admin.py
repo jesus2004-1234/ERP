@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Expediente, ExpedienteDocumento, FacturaCliente, PagoCliente, FacturaProveedor, PagoProveedor, PresupuestoAnual, ConceptoIngreso, PartidaGasto,PresupuestoIngreso, PresupuestoGasto, PresupuestoIngresoMensual, PresupuestoGastoMensual, ProgramaPago
+from .models import Expediente, ExpedienteDocumento, FacturaCliente, PagoCliente, FacturaProveedor, PagoProveedor, PresupuestoAnual, ConceptoIngreso, PartidaGasto,PresupuestoIngreso, PresupuestoGasto, PresupuestoIngresoMensual, PresupuestoGastoMensual, CategoriaMovimiento, ProgramaPago, MovimientoPrograma, CuentaBancaria, MovimientoBancario
 
 
 @admin.register(Expediente)
@@ -239,9 +239,48 @@ class PresupuestoAnualAdmin(admin.ModelAdmin):
     readonly_fields = ("fecha_creacion", "fecha_actualizacion")
     inlines = [PresupuestoIngresoReadOnlyInline, PresupuestoGastoReadOnlyInline]
 
+@admin.register(CategoriaMovimiento)
+class CategoriaMovimientoAdmin(admin.ModelAdmin):
+    list_display = ("codigo", "nombre", "tipo", "activo")
+    list_filter = ("tipo", "activo")
+    search_fields = ("codigo", "nombre")
+    ordering = ("tipo", "codigo")
+
+class MovimientoProgramaReadOnlyInline(admin.TabularInline):
+    model = MovimientoPrograma
+    extra = 0
+    fields = ("categoria", "concepto", "fecha_programada", "monto", "estatus")
+    readonly_fields = ("categoria", "concepto", "fecha_programada", "monto", "estatus")
+    can_delete = False
+    show_change_link = True
+
 @admin.register(ProgramaPago)
 class ProgramaPagoAdmin(admin.ModelAdmin):
-    list_display = ("fecha_inicio", "fecha_fin","saldo_inicial", "estatus")
+    list_display = ("fecha_inicio", "fecha_fin", "saldo_inicial", "estatus")
     list_filter = ("estatus",)
     ordering = ("-fecha_inicio",)
     readonly_fields = ("fecha_creacion", "fecha_actualizacion")
+    inlines = [MovimientoProgramaReadOnlyInline]
+
+
+@admin.register(MovimientoPrograma)
+class MovimientoProgramaAdmin(admin.ModelAdmin):
+    list_display = ("programa", "categoria", "concepto", "fecha_programada", "monto", "estatus")
+    list_filter = ("categoria__tipo", "estatus", "categoria")
+    search_fields = ("concepto",)
+    autocomplete_fields = ("categoria", "factura_proveedor")
+    ordering = ("-fecha_programada",)
+@admin.register(CuentaBancaria)
+class CuentaBancariaAdmin(admin.ModelAdmin):
+    list_display = ("alias", "banco", "numero_cuenta", "moneda", "activa")
+    list_filter = ("banco", "moneda", "activa")
+    search_fields = ("alias", "banco", "numero_cuenta")
+    ordering = ("banco", "alias")
+
+@admin.register(MovimientoBancario)
+class MovimientoBancarioAdmin(admin.ModelAdmin):
+    list_display = ("fecha", "cuenta", "concepto_bancario", "cargo", "abono", "saldo", "conciliado")
+    list_filter = ("cuenta", "conciliado")
+    search_fields = ("concepto_bancario", "mov", "expediente__razon_social", "expediente__nombres", "expediente__rfc")
+    autocomplete_fields = ("cuenta", "expediente", "factura_cliente", "factura_proveedor")
+    ordering = ("-fecha",)
