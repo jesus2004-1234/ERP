@@ -3,6 +3,8 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.contrib import messages
 
+from config.uploads import validar_archivo_subido
+
 from .models import Documento
 
 BASE_TEMPLATES = {
@@ -41,6 +43,15 @@ def documentos(request):
 
         categoria = request.POST.get("categoria")
         archivo = request.FILES.get("archivo")
+
+        if archivo and categoria not in Documento.Categoria.values:
+            messages.error(request, "La categoría seleccionada no es válida.")
+            return redirect("documentos")
+
+        valido, mensaje = validar_archivo_subido(archivo) if archivo else (True, "")
+        if not valido:
+            messages.error(request, mensaje)
+            return redirect("documentos")
 
         if archivo and categoria:
 

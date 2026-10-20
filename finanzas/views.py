@@ -1,3 +1,4 @@
+import logging
 from decimal import Decimal, InvalidOperation
 from datetime import timedelta
 
@@ -17,21 +18,81 @@ from django.shortcuts import render, redirect
 
 
 from .models import Expediente, ExpedienteDocumento, FacturaCliente, PagoCliente, FacturaProveedor, PagoProveedor, PresupuestoAnual, PresupuestoIngreso, ConceptoIngreso, PresupuestoGasto, PartidaGasto, PresupuestoIngresoMensual, PresupuestoGastoMensual, CategoriaMovimiento, ProgramaPago, MovimientoPrograma,CuentaBancaria, MovimientoBancario
+from config.uploads import validar_archivo_subido
 from .validators import validar_rfc
+
+logger = logging.getLogger(__name__)
 
 
 @never_cache
 @login_required
 def dashboard(request):
     """
-    Dashboard principal del módulo de Finanzas.
+    Dashboard principal del módulo de Finanzas (con datos reales).
+    Todo se expresa en MXN: cada monto se convierte con el tipo de cambio de su factura.
     """
 
+    hoy = timezone.localdate()
+    inicio_mes = hoy.replace(day=1)
+    en_siete_dias = hoy + timedelta(days=7)
+    cero = Decimal("0.00")
+    campo = DecimalField(max_digits=16, decimal_places=2)
+
+    def total_mxn(qs, monto="total", tc="tipo_cambio"):
+        return qs.aggregate(
+            t=Sum(ExpressionWrapper(F(monto) * F(tc), output_field=campo))
+        )["t"] or cero
+
+    cxc_activas = FacturaCliente.objects.exclude(estatus=FacturaCliente.Estatus.CANCELADA)
+    cxp_activas = FacturaProveedor.objects.exclude(estatus=FacturaProveedor.Estatus.CANCELADA)
+
+    por_cobrar = total_mxn(cxc_activas) - total_mxn(
+        PagoCliente.objects.filter(factura__in=cxc_activas), "monto", "factura__tipo_cambio"
+    )
+    por_pagar = total_mxn(cxp_activas) - total_mxn(
+        PagoProveedor.objects.filter(factura__in=cxp_activas), "monto", "factura__tipo_cambio"
+    )
+
+    cobrado_mes = total_mxn(
+        PagoCliente.objects.filter(fecha_pago__gte=inicio_mes, fecha_pago__lte=hoy),
+        "monto", "factura__tipo_cambio",
+    )
+    pagado_mes = total_mxn(
+        PagoProveedor.objects.filter(fecha_pago__gte=inicio_mes, fecha_pago__lte=hoy),
+        "monto", "factura__tipo_cambio",
+    )
+
+    saldo_bancario = sum(
+        (c.saldo_actual for c in CuentaBancaria.objects.filter(activa=True, moneda="MXN")),
+        cero,
+    )
+
+    def con_saldo(qs):
+        return qs.annotate(
+            pagado_calc=Coalesce(
+                Sum("pagos__monto"), Value(cero),
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            )
+        ).filter(total__gt=F("pagado_calc"))
+
+    cxc_vencidas = con_saldo(cxc_activas).filter(fecha_vencimiento__lt=hoy).count()
+    cxp_vencidas = con_saldo(cxp_activas).filter(fecha_vencimiento__lt=hoy).count()
+    cxp_por_vencer = con_saldo(cxp_activas).filter(
+        fecha_vencimiento__gte=hoy, fecha_vencimiento__lte=en_siete_dias
+    ).count()
+    movimientos_sin_conciliar = MovimientoBancario.objects.filter(conciliado=False).count()
+
     context = {
-        "total_ingresos": "$0.00",
-        "total_egresos": "$0.00",
-        "balance_actual": "$0.00",
-        "alertas_financieras": 0,
+        "total_ingresos": cobrado_mes,
+        "total_egresos": pagado_mes,
+        "balance_actual": saldo_bancario,
+        "alertas_financieras": cxc_vencidas + cxp_vencidas + cxp_por_vencer,
+        "por_cobrar": por_cobrar,
+        "por_pagar": por_pagar,
+        "cxc_vencidas": cxc_vencidas,
+        "cxp_vencidas": cxp_vencidas,
+        "cxp_por_vencer": cxp_por_vencer,
+        "movimientos_sin_conciliar": movimientos_sin_conciliar,
     }
 
     return render(
@@ -44,6 +105,50 @@ def dashboard(request):
 # =====================================================
 # HELPERS
 # =====================================================
+
+def _guardar_pago_con_bloqueo(modelo_factura, modelo_pago, factura_pk, monto, campos, pago_pk=None):
+    """
+    Crea o actualiza un pago BLOQUEANDO la factura (SELECT ... FOR UPDATE) dentro
+    de una transacción. Así, si dos usuarios registran un pago a la vez, el segundo
+    espera y valida contra el saldo ya actualizado: no se puede sobrepagar.
+
+    Devuelve (pago, None) si todo salió bien, o (None, "mensaje de error").
+    """
+    with transaction.atomic():
+        factura = modelo_factura.objects.select_for_update().get(pk=factura_pk)
+
+        if factura.estatus == modelo_factura.Estatus.CANCELADA:
+            return None, "No se pueden registrar ni editar pagos de una factura cancelada."
+
+        if pago_pk is None:
+            if factura.estatus == modelo_factura.Estatus.PAGADA:
+                return None, "Esta factura ya está completamente pagada."
+
+            saldo_actual = factura.saldo_pendiente
+            if monto > saldo_actual:
+                return None, (
+                    f"El monto (${monto}) no puede exceder el saldo pendiente (${saldo_actual})."
+                )
+
+            pago = modelo_pago.objects.create(factura=factura, monto=monto, **campos)
+            return pago, None
+
+        pago = modelo_pago.objects.select_for_update().get(pk=pago_pk, factura=factura)
+
+        # El pago que se edita ya está descontado del saldo: hay que "liberarlo"
+        # antes de comparar contra el nuevo monto.
+        saldo_disponible = factura.saldo_pendiente + pago.monto
+        if monto > saldo_disponible:
+            return None, (
+                f"El monto (${monto}) no puede exceder el saldo disponible (${saldo_disponible})."
+            )
+
+        pago.monto = monto
+        for nombre, valor in campos.items():
+            setattr(pago, nombre, valor)
+        pago.save()
+        return pago, None
+
 
 def _dias_credito_desde_post(post):
     """Castea dias_credito a int de forma segura. Devuelve 0 si no es válido."""
@@ -368,6 +473,15 @@ def expediente_documento_subir(request, pk):
         messages.error(request, 'Debe seleccionar una categoría y un archivo.')
         return redirect('expediente_detalle', pk=pk)
 
+    if categoria not in ExpedienteDocumento.Categoria.values:
+        messages.error(request, 'La categoría seleccionada no es válida.')
+        return redirect('expediente_detalle', pk=pk)
+
+    valido, mensaje = validar_archivo_subido(archivo)
+    if not valido:
+        messages.error(request, mensaje)
+        return redirect('expediente_detalle', pk=pk)
+
     ExpedienteDocumento.objects.create(
         expediente=expediente,
         categoria=categoria,
@@ -463,7 +577,7 @@ def facturas_lista(request):
             )
         )
         .filter(
-            fecha_vencimiento__lt=timezone.now().date(),
+            fecha_vencimiento__lt=timezone.localdate(),
             total__gt=F("pagado_calc"),
         )
         .count()
@@ -728,14 +842,6 @@ def registrar_pago(request, pk):
             messages.error(request, "El monto debe ser mayor a cero.")
             return render(request, "finanzas/cxc/registrar_pago.html", contexto_base)
 
-        saldo_actual = factura.saldo_pendiente
-        if monto > saldo_actual:
-            messages.error(
-                request,
-                f"El monto (${monto}) no puede exceder el saldo pendiente (${saldo_actual})."
-            )
-            return render(request, "finanzas/cxc/registrar_pago.html", contexto_base)
-
         fecha_pago = request.POST.get("fecha_pago")
         if not fecha_pago:
             messages.error(request, "Debe especificar la fecha de pago.")
@@ -747,17 +853,21 @@ def registrar_pago(request, pk):
         referencia = (request.POST.get("referencia") or "").strip().upper()
         observaciones = request.POST.get("observaciones", "")
 
-        # PagoCliente.save() ya llama internamente a factura.actualizar_estatus(),
-        # así que no hace falta actualizar el estatus manualmente aquí.
-        PagoCliente.objects.create(
-            factura=factura,
-            fecha_pago=fecha_pago,
-            fecha_deposito=fecha_deposito,
-            monto=monto,
-            metodo_pago=request.POST.get("metodo_pago", PagoCliente.MetodoPago.TRANSFERENCIA),
-            referencia=referencia,
-            observaciones=observaciones,
+        # La factura se bloquea durante el guardado (evita sobrepagos simultáneos).
+        # PagoCliente.save() ya actualiza el estatus de la factura.
+        _, error = _guardar_pago_con_bloqueo(
+            FacturaCliente, PagoCliente, factura.pk, monto,
+            {
+                "fecha_pago": fecha_pago,
+                "fecha_deposito": fecha_deposito,
+                "metodo_pago": request.POST.get("metodo_pago", PagoCliente.MetodoPago.TRANSFERENCIA),
+                "referencia": referencia,
+                "observaciones": observaciones,
+            },
         )
+        if error:
+            messages.error(request, error)
+            return render(request, "finanzas/cxc/registrar_pago.html", contexto_base)
 
         messages.success(request, "Pago registrado correctamente.")
 
@@ -1006,19 +1116,6 @@ def pago_editar(request, pk):
             messages.error(request, "El monto debe ser mayor a cero.")
             return render(request, "finanzas/cxc/pago_editar.html", contexto_base)
 
-        # El tope es el saldo pendiente ACTUAL más lo que este mismo pago ya
-        # está aportando (porque ese monto original hay que "liberarlo" antes
-        # de comparar, si no, el pago se compara contra un saldo que ya lo
-        # incluye descontado y nunca dejaría subirlo).
-        saldo_disponible = factura.saldo_pendiente + pago.monto
-        if monto > saldo_disponible:
-            messages.error(
-                request,
-                f"El monto (${monto}) no puede exceder el saldo disponible "
-                f"(${saldo_disponible})."
-            )
-            return render(request, "finanzas/cxc/pago_editar.html", contexto_base)
-
         fecha_pago = request.POST.get("fecha_pago")
         if not fecha_pago:
             messages.error(request, "Debe especificar la fecha de pago.")
@@ -1028,15 +1125,22 @@ def pago_editar(request, pk):
         referencia = (request.POST.get("referencia") or "").strip().upper()
         observaciones = request.POST.get("observaciones", "")
 
-        pago.monto = monto
-        pago.fecha_pago = fecha_pago
-        pago.fecha_deposito = fecha_deposito
-        pago.metodo_pago = request.POST.get("metodo_pago", pago.metodo_pago)
-        pago.referencia = referencia
-        pago.observaciones = observaciones
-
-        # PagoCliente.save() ya llama internamente a factura.actualizar_estatus().
-        pago.save()
+        # Bloquea la factura y valida el tope (saldo + lo que este pago ya aporta).
+        # PagoCliente.save() ya actualiza el estatus de la factura.
+        _, error = _guardar_pago_con_bloqueo(
+            FacturaCliente, PagoCliente, factura.pk, monto,
+            {
+                "fecha_pago": fecha_pago,
+                "fecha_deposito": fecha_deposito,
+                "metodo_pago": request.POST.get("metodo_pago", pago.metodo_pago),
+                "referencia": referencia,
+                "observaciones": observaciones,
+            },
+            pago_pk=pago.pk,
+        )
+        if error:
+            messages.error(request, error)
+            return render(request, "finanzas/cxc/pago_editar.html", contexto_base)
 
         messages.success(request, "Pago actualizado correctamente.")
 
@@ -1065,12 +1169,8 @@ def pago_eliminar(request, pk):
 
     if request.method == "POST":
 
+        # PagoCliente.delete() recalcula el estatus de la factura (igual que PagoProveedor).
         pago.delete()
-
-        # A diferencia de crear/editar, delete() NO pasa por el save()
-        # personalizado de PagoCliente, así que aquí SÍ hay que recalcular
-        # el estatus de la factura a mano.
-        factura.actualizar_estatus()
 
         messages.success(request, "Pago eliminado correctamente.")
 
@@ -1603,11 +1703,14 @@ def factura_proveedor_crear(request):
             "Verifica que el número de factura no esté duplicado."
         )
 
-    except Exception as e:
+    except Exception:
 
+        # El detalle técnico va al log, no a la pantalla del usuario.
+        logger.exception("Error al registrar factura de proveedor")
         messages.error(
             request,
-            f"Ocurrió un error al registrar la factura: {str(e)}"
+            "Ocurrió un error inesperado al registrar la factura. "
+            "Intenta de nuevo; si persiste, avisa al administrador."
         )
 
     # =========================================================
@@ -1915,14 +2018,6 @@ def registrar_proveedor_pago(request, pk):
             messages.error(request, "El monto debe ser mayor a cero.")
             return render(request, "finanzas/cxp/registrar_pago.html", contexto_base)
 
-        saldo_actual = factura.saldo_pendiente
-        if monto > saldo_actual:
-            messages.error(
-                request,
-                f"El monto (${monto}) no puede exceder el saldo pendiente (${saldo_actual})."
-            )
-            return render(request, "finanzas/cxp/registrar_pago.html", contexto_base)
-
         fecha_pago = request.POST.get("fecha_pago")
         if not fecha_pago:
             messages.error(request, "Debe especificar la fecha de pago.")
@@ -1932,15 +2027,19 @@ def registrar_proveedor_pago(request, pk):
         referencia = (request.POST.get("referencia") or "").strip().upper()
         observaciones = request.POST.get("observaciones", "")
 
-        PagoProveedor.objects.create(
-            factura=factura,
-            fecha_pago=fecha_pago,
-            fecha_deposito=fecha_deposito,
-            monto=monto,
-            metodo_pago=request.POST.get("metodo_pago", PagoProveedor.MetodoPago.TRANSFERENCIA),
-            referencia=referencia,
-            observaciones=observaciones,
+        _, error = _guardar_pago_con_bloqueo(
+            FacturaProveedor, PagoProveedor, factura.pk, monto,
+            {
+                "fecha_pago": fecha_pago,
+                "fecha_deposito": fecha_deposito,
+                "metodo_pago": request.POST.get("metodo_pago", PagoProveedor.MetodoPago.TRANSFERENCIA),
+                "referencia": referencia,
+                "observaciones": observaciones,
+            },
         )
+        if error:
+            messages.error(request, error)
+            return render(request, "finanzas/cxp/registrar_pago.html", contexto_base)
 
         messages.success(request, "Pago registrado correctamente.")
 
@@ -1981,15 +2080,6 @@ def pago_proveedor_editar(request, pk):
             messages.error(request, "El monto debe ser mayor a cero.")
             return render(request, "finanzas/cxp/pago_editar.html", contexto_base)
 
-        saldo_disponible = factura.saldo_pendiente + pago.monto
-        if monto > saldo_disponible:
-            messages.error(
-                request,
-                f"El monto (${monto}) no puede exceder el saldo disponible "
-                f"(${saldo_disponible})."
-            )
-            return render(request, "finanzas/cxp/pago_editar.html", contexto_base)
-
         fecha_pago = request.POST.get("fecha_pago")
         if not fecha_pago:
             messages.error(request, "Debe especificar la fecha de pago.")
@@ -1999,15 +2089,20 @@ def pago_proveedor_editar(request, pk):
         referencia = (request.POST.get("referencia") or "").strip().upper()
         observaciones = request.POST.get("observaciones", "")
 
-        pago.monto = monto
-        pago.fecha_pago = fecha_pago
-        pago.fecha_deposito = fecha_deposito
-        pago.metodo_pago = request.POST.get("metodo_pago", pago.metodo_pago)
-        pago.referencia = referencia
-        pago.observaciones = observaciones
-
-        # PagoProveedor.save() ya llama internamente a factura.actualizar_estatus().
-        pago.save()
+        _, error = _guardar_pago_con_bloqueo(
+            FacturaProveedor, PagoProveedor, factura.pk, monto,
+            {
+                "fecha_pago": fecha_pago,
+                "fecha_deposito": fecha_deposito,
+                "metodo_pago": request.POST.get("metodo_pago", pago.metodo_pago),
+                "referencia": referencia,
+                "observaciones": observaciones,
+            },
+            pago_pk=pago.pk,
+        )
+        if error:
+            messages.error(request, error)
+            return render(request, "finanzas/cxp/pago_editar.html", contexto_base)
 
         messages.success(request, "Pago actualizado correctamente.")
 
@@ -2110,7 +2205,7 @@ def presupuesto_crear(request):
             messages.error(request, "Estatus no válido.")
             return render(request, "finanzas/presupuestos/crear.html", contexto_base)
 
-        presupuesto = PresupuestoAnual.objects.create(
+        PresupuestoAnual.objects.create(
             ejercicio=ejercicio,
             nombre=nombre,
             estatus=estatus,

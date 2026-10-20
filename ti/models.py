@@ -7,7 +7,7 @@ class Empleado(models.Model):
 
     usuario = models.OneToOneField(
         User,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,  # borrar el usuario no debe borrar al empleado ni su historial
         null=True,
         blank=True,
         related_name="empleado"
@@ -93,8 +93,9 @@ class Asignacion(models.Model):
         ASIGNADO = 'Asignado', 'Asignado'
         DEVUELTO = 'Devuelto', 'Devuelto'
 
-    equipo           = models.ForeignKey(Equipo, on_delete=models.CASCADE)
-    empleado         = models.ForeignKey(Empleado, on_delete=models.CASCADE, related_name='asignaciones')
+    # PROTECT: el historial de resguardos no debe perderse al borrar un equipo o empleado.
+    equipo           = models.ForeignKey(Equipo, on_delete=models.PROTECT)
+    empleado         = models.ForeignKey(Empleado, on_delete=models.PROTECT, related_name='asignaciones')
     fecha_asignacion = models.DateField(auto_now_add=True)
     fecha_devolucion = models.DateField(blank=True, null=True)
     estatus          = models.CharField(max_length=20, choices=EstatusAsignacion.choices, default=EstatusAsignacion.ASIGNADO)
@@ -146,7 +147,7 @@ class Mantenimiento(models.Model):
     def estatus(self):
         if not self.proxima_fecha_mantenimiento:
             return 'Pendiente'
-        hoy = timezone.now().date()
+        hoy = timezone.localdate()
         dias_restantes = (self.proxima_fecha_mantenimiento - hoy).days
         if dias_restantes < 0:
             return 'Vencido'

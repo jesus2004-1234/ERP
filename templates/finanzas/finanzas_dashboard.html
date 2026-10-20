@@ -1,4 +1,5 @@
 {% extends "finanzas/base_finanzas.html" %}
+{% load humanize %}
 
 {% block title %}Dashboard - ERP PLANEACION Y CONTROL FINANCIERO{% endblock %}
 {% block menu_dashboard %}active{% endblock %}
@@ -6,14 +7,14 @@
 
 {% block content %}
 
-<!-- Tarjetas de resumen -->
+<!-- Resumen del mes (montos en MXN) -->
 <div class="row mb-4">
     <div class="col-md-3">
         <div class="card border-primary">
             <div class="card-body text-center">
                 <i class="bi bi-cash fs-1 text-primary"></i>
-                <h3 class="mt-2">{{ total_ingresos }}</h3>
-                <p class="text-muted mb-0">Ingresos</p>
+                <h3 class="mt-2">${{ total_ingresos|floatformat:2|intcomma }}</h3>
+                <p class="text-muted mb-0">Cobrado en el mes</p>
             </div>
         </div>
     </div>
@@ -21,17 +22,17 @@
         <div class="card border-success">
             <div class="card-body text-center">
                 <i class="bi bi-credit-card fs-1 text-success"></i>
-                <h3 class="mt-2">{{ total_egresos }}</h3>
-                <p class="text-muted mb-0">Egresos</p>
+                <h3 class="mt-2">${{ total_egresos|floatformat:2|intcomma }}</h3>
+                <p class="text-muted mb-0">Pagado en el mes</p>
             </div>
         </div>
     </div>
     <div class="col-md-3">
         <div class="card border-warning">
             <div class="card-body text-center">
-                <i class="bi bi-pie-chart fs-1 text-warning"></i>
-                <h3 class="mt-2">{{ balance_actual }}</h3>
-                <p class="text-muted mb-0">Balance actual</p>
+                <i class="bi bi-bank fs-1 text-warning"></i>
+                <h3 class="mt-2">${{ balance_actual|floatformat:2|intcomma }}</h3>
+                <p class="text-muted mb-0">Saldo bancario (cuentas MXN)</p>
             </div>
         </div>
     </div>
@@ -44,20 +45,45 @@
             </div>
         </div>
     </div>
+</div>
 
-    <div class="col-md-12 mt-4">
+<!-- Cartera -->
+<div class="row mb-4">
+    <div class="col-md-6">
         <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Gráfico de Ingresos y Egresos</h5>
-            </div>
+            <div class="card-header"><h5 class="card-title mb-0">Cuentas por cobrar (CxC)</h5></div>
             <div class="card-body">
-                <canvas id="ingresosEgresosChart" width="400" height="200"></canvas>
+                <h3>${{ por_cobrar|floatformat:2|intcomma }}</h3>
+                <p class="mb-1 text-muted">Saldo pendiente de cobro</p>
+                <a href="{% url 'facturas_lista' %}" class="text-danger small">
+                    {{ cxc_vencidas }} factura{{ cxc_vencidas|pluralize }} vencida{{ cxc_vencidas|pluralize }}
+                </a>
             </div>
         </div>
-    </div> 
-    <date-picker-component></date-picker-component>
-    
-
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header"><h5 class="card-title mb-0">Cuentas por pagar (CxP)</h5></div>
+            <div class="card-body">
+                <h3>${{ por_pagar|floatformat:2|intcomma }}</h3>
+                <p class="mb-1 text-muted">Saldo pendiente de pago</p>
+                <a href="{% url 'facturas_proveedor_lista' %}" class="text-danger small">
+                    {{ cxp_vencidas }} vencida{{ cxp_vencidas|pluralize }}
+                </a>
+                <span class="text-muted small"> &middot; </span>
+                <span class="text-warning small">{{ cxp_por_vencer }} por vencer en 7 d&iacute;as</span>
+            </div>
+        </div>
+    </div>
 </div>
+
+{% if movimientos_sin_conciliar %}
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i>
+    Hay <strong>{{ movimientos_sin_conciliar }}</strong> movimiento{{ movimientos_sin_conciliar|pluralize }}
+    bancario{{ movimientos_sin_conciliar|pluralize }} sin conciliar.
+    <a href="{% url 'movimientos_bancarios_lista' %}" class="alert-link">Ver movimientos</a>
+</div>
+{% endif %}
 
 {% endblock %}

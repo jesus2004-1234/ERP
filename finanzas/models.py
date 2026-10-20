@@ -1,10 +1,9 @@
 from decimal import Decimal
 
-from django.db import models
-from django.utils import timezone
-from django.db import models, transaction
-from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
+from django.db import models, transaction
+from django.db.models import Sum
+from django.utils import timezone
 
 
 class Expediente(models.Model):
@@ -198,7 +197,11 @@ class FacturaCliente(models.Model):
 
     @property
     def total_pagado(self):
-        return sum(pago.monto for pago in self.pagos.all())
+        # Si la vista ya hizo prefetch_related("pagos") se suma en memoria;
+        # si no, se hace UNA agregación en BD en lugar de traer todos los pagos.
+        if "pagos" in getattr(self, "_prefetched_objects_cache", {}):
+            return sum((pago.monto for pago in self.pagos.all()), Decimal("0.00"))
+        return self.pagos.aggregate(t=Sum("monto"))["t"] or Decimal("0.00")
 
     @property
     def saldo_pendiente(self):
@@ -209,12 +212,12 @@ class FacturaCliente(models.Model):
     def dias_vencimiento(self):
         if self.estatus == self.Estatus.PAGADA:
             return 0
-        dias = (timezone.now().date() - self.fecha_vencimiento).days
+        dias = (timezone.localdate() - self.fecha_vencimiento).days
         return dias if dias > 0 else 0
 
     @property
     def vencida(self):
-        return (self.saldo_pendiente > 0 and timezone.now().date() > self.fecha_vencimiento)
+        return (self.saldo_pendiente > 0 and timezone.localdate() > self.fecha_vencimiento)
 
     def actualizar_estatus(self):
         if self.estatus == self.Estatus.CANCELADA:
@@ -238,6 +241,10 @@ class FacturaCliente(models.Model):
         ordering = ["-fecha_factura"]  # noqa: RUF012
         verbose_name = "Factura Cliente"
         verbose_name_plural = "Facturas Clientes"
+        indexes = [
+            models.Index(fields=["estatus", "fecha_vencimiento"], name="fcli_estatus_venc_idx"),
+            models.Index(fields=["fecha_factura"], name="fcli_fecha_idx"),
+        ]
 
 
 class PagoCliente(models.Model):
@@ -248,8 +255,10 @@ class PagoCliente(models.Model):
         EFECTIVO = "Efectivo", "Efectivo"
         OTRO = "Otro", "Otro"
 
+    # PROTECT (igual que PagoProveedor): borrar una factura no debe destruir
+    # en silencio los pagos registrados contra ella.
     factura = models.ForeignKey(
-        "FacturaCliente", on_delete=models.CASCADE, related_name="pagos"
+        "FacturaCliente", on_delete=models.PROTECT, related_name="pagos"
     )
     fecha_pago = models.DateField()
     fecha_deposito = models.DateField(blank=True, null=True)
@@ -274,6 +283,16 @@ class PagoCliente(models.Model):
         with transaction.atomic():
             super().save(*args, **kwargs)
             self.factura.actualizar_estatus()
+
+    def delete(self, *args, **kwargs):
+        factura = self.factura
+
+        with transaction.atomic():
+            resultado = super().delete(*args, **kwargs)
+            factura.actualizar_estatus()
+
+        return resultado
+
 
 class FacturaProveedor(models.Model):
     class Estatus(models.TextChoices):
@@ -379,10 +398,11 @@ class FacturaProveedor(models.Model):
 
     @property
     def total_pagado(self):
-        return sum(
-            pago.monto
-            for pago in self.pagos.all()
-        )
+        # Si la vista ya hizo prefetch_related("pagos") se suma en memoria;
+        # si no, se hace UNA agregación en BD en lugar de traer todos los pagos.
+        if "pagos" in getattr(self, "_prefetched_objects_cache", {}):
+            return sum((pago.monto for pago in self.pagos.all()), Decimal("0.00"))
+        return self.pagos.aggregate(t=Sum("monto"))["t"] or Decimal("0.00")
 
     @property
     def saldo_pendiente(self):
@@ -396,7 +416,7 @@ class FacturaProveedor(models.Model):
             return 0
 
         dias = (
-            timezone.now().date()
+            timezone.localdate()
             - self.fecha_vencimiento
         ).days
 
@@ -406,7 +426,7 @@ class FacturaProveedor(models.Model):
     def vencida(self):
         return (
             self.saldo_pendiente > 0
-            and timezone.now().date()
+            and timezone.localdate()
             > self.fecha_vencimiento
         )
 
@@ -442,6 +462,10 @@ class FacturaProveedor(models.Model):
         ordering = ["-fecha_factura"]
         verbose_name = "Factura Proveedor"
         verbose_name_plural = "Facturas Proveedores"
+        indexes = [
+            models.Index(fields=["estatus", "fecha_vencimiento"], name="fprov_estatus_venc_idx"),
+            models.Index(fields=["fecha_factura"], name="fprov_fecha_idx"),
+        ]
 
 
 class PagoProveedor(models.Model):
@@ -515,8 +539,11 @@ class PagoProveedor(models.Model):
         factura = self.factura
 
         with transaction.atomic():
-            super().delete(*args, **kwargs)
+            resultado = super().delete(*args, **kwargs)
             factura.actualizar_estatus()
+
+        return resultado
+
 
 class PresupuestoAnual(models.Model):
 
@@ -871,6 +898,10 @@ class MovimientoBancario(models.Model):
         verbose_name = "Movimiento bancario"
         verbose_name_plural = "Movimientos bancarios"
         ordering = ["-fecha", "-id"]
+        indexes = [
+            models.Index(fields=["cuenta", "fecha"], name="movban_cuenta_fecha_idx"),
+            models.Index(fields=["conciliado"], name="movban_conciliado_idx"),
+        ]
 
     def __str__(self):
         return f"{self.fecha} - {self.concepto_bancario}"

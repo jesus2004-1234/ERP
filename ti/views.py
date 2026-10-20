@@ -1,13 +1,46 @@
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from django.views.decorators.cache import never_cache
-from django.db import models
-from django.utils import timezone
-from .models import Empleado, Equipo, Consumible, Mantenimiento, Asignacion, Correos
-import requests
 import json
-from django.db.models import Count
+import logging
+
+import requests
+from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
+from django.db import models
+from django.db.models import Count, ProtectedError
+from django.shortcuts import render, get_object_or_404, redirect
+from django.utils import timezone
+from django.views.decorators.cache import never_cache
+
+from .models import Empleado, Equipo, Consumible, Mantenimiento, Asignacion, Correos
+
+logger = logging.getLogger(__name__)
+
+TICKETS_CACHE_KEY = 'ti_tickets_api'
+
+
+def _obtener_tickets():
+    """
+    Tickets de la API externa. Se guarda en caché unos minutos para que el dashboard
+    no dependa de un servicio de terceros en cada carga; si la API falla, se registra
+    en el log y se cachea la falla unos segundos (así no se espera el timeout en
+    cada recarga).
+    """
+    tickets = cache.get(TICKETS_CACHE_KEY)
+    if tickets is not None:
+        return tickets
+
+    try:
+        respuesta = requests.get(settings.TICKETS_API_URL, timeout=3)
+        respuesta.raise_for_status()
+        tickets = respuesta.json().get('tickets', [])
+    except (requests.RequestException, ValueError):
+        logger.warning('No se pudo consultar la API de tickets', exc_info=True)
+        cache.set(TICKETS_CACHE_KEY, [], 30)
+        return []
+
+    cache.set(TICKETS_CACHE_KEY, tickets, settings.TICKETS_API_CACHE_SECONDS)
+    return tickets
 
 
 @never_cache
@@ -15,19 +48,11 @@ from django.db.models import Count
 def dashboard(request):
     total_empleados   = Empleado.objects.count()
     total_equipos     = Equipo.objects.count()
-    tickets_abiertos  = 0
     consumibles_bajos = Consumible.objects.filter(stock_actual__lte=5).count()
 
-    tickets_recientes = []
-    try:
-        response = requests.get('https://jesusaav4.pythonanywhere.com/api/tickets', timeout=5)
-        data = response.json()
-        todos_tickets     = data.get('tickets', [])
-        tickets_abiertos  = sum(1 for t in todos_tickets if t['estado'] == 'Abierto')
-        tickets_recientes = todos_tickets[:5]
-    except Exception as e:
-        print(e)
-        todos_tickets = []
+    todos_tickets     = _obtener_tickets()
+    tickets_abiertos  = sum(1 for t in todos_tickets if t.get('estado') == 'Abierto')
+    tickets_recientes = todos_tickets[:5]
 
     equipos_por_tipo = list(
         Equipo.objects.values('tipo').annotate(total=Count('tipo')).order_by('-total')
@@ -50,7 +75,7 @@ def dashboard(request):
 
     proximos_mantenimientos = Mantenimiento.objects.filter(
         proxima_fecha_mantenimiento__isnull=False,
-        proxima_fecha_mantenimiento__gte=timezone.now().date()
+        proxima_fecha_mantenimiento__gte=timezone.localdate()
     ).order_by('proxima_fecha_mantenimiento')[:3]
 
 
@@ -130,7 +155,15 @@ def empleado_editar(request, pk):
 def empleado_eliminar(request, pk):
     empleado = get_object_or_404(Empleado, pk=pk)
     if request.method == 'POST':
-        empleado.delete()
+        try:
+            empleado.delete()
+        except ProtectedError:
+            messages.error(
+                request,
+                'No se puede eliminar al empleado porque tiene asignaciones de equipo '
+                'registradas. Elimina o reasigna esas asignaciones primero.'
+            )
+            return redirect('empleados_lista')
         messages.success(request, 'Empleado eliminado correctamente.')
         return redirect('empleados_lista')
     return render(request, 'ti/empleados/eliminar.html', {'empleado': empleado})
@@ -206,7 +239,15 @@ def equipo_editar(request, pk):
 def equipo_eliminar(request, pk):
     equipo = get_object_or_404(Equipo, pk=pk)
     if request.method == 'POST':
-        equipo.delete()
+        try:
+            equipo.delete()
+        except ProtectedError:
+            messages.error(
+                request,
+                'No se puede eliminar el equipo porque tiene asignaciones registradas. '
+                'Cámbialo a estatus Baja o Inactivo en lugar de borrarlo.'
+            )
+            return redirect('equipos_lista')
         messages.success(request, 'Equipo eliminado correctamente.')
         return redirect('equipos_lista')
     return render(request, 'ti/equipos/eliminar.html', {'equipo': equipo})
@@ -242,22 +283,41 @@ def asignaciones_lista(request):
 def asignacion_crear(request):
     equipos   = Equipo.objects.filter(estatus='Activo')
     empleados = Empleado.objects.all()
+    contexto = {'equipos': equipos, 'empleados': empleados}
     if request.method == 'POST':
+        equipo_id   = request.POST.get('equipo')
+        empleado_id = request.POST.get('empleado')
+        estatus     = request.POST.get('estatus')
+
+        if not equipo_id or not empleado_id or estatus not in Asignacion.EstatusAsignacion.values:
+            messages.error(request, 'Debe seleccionar equipo, empleado y un estatus válido.')
+            return render(request, 'ti/asignaciones/crear.html', contexto)
+
+        # Un equipo no puede estar asignado a dos personas a la vez.
+        if estatus == Asignacion.EstatusAsignacion.ASIGNADO and Asignacion.objects.filter(
+            equipo_id=equipo_id, estatus=Asignacion.EstatusAsignacion.ASIGNADO
+        ).exists():
+            messages.error(
+                request,
+                'Ese equipo ya está asignado actualmente. Registra primero su devolución.'
+            )
+            return render(request, 'ti/asignaciones/crear.html', contexto)
+
         # request.FILES.get(...) porque ambos archivos son opcionales: una
         # asignación puede crearse sin acta adjunta todavía, y normalmente
         # la de devolución se sube después, al editar.
         Asignacion.objects.create(
-            equipo_id=request.POST['equipo'],
-            empleado_id=request.POST['empleado'],
+            equipo_id=equipo_id,
+            empleado_id=empleado_id,
             fecha_devolucion=request.POST.get('fecha_devolucion') or None,
-            estatus=request.POST['estatus'],
+            estatus=estatus,
             entregado_por=request.POST.get('entregado_por', ''),
             archivo_resguardo=request.FILES.get('archivo_resguardo'),
             archivo_devolucion=request.FILES.get('archivo_devolucion'),
         )
         messages.success(request, 'Asignación creada correctamente.')
         return redirect('asignaciones_lista')
-    return render(request, 'ti/asignaciones/crear.html', {'equipos': equipos, 'empleados': empleados})
+    return render(request, 'ti/asignaciones/crear.html', contexto)
 
 
 @never_cache
@@ -266,13 +326,31 @@ def asignacion_editar(request, pk):
     asignacion = get_object_or_404(Asignacion, pk=pk)
     equipos    = Equipo.objects.filter(estatus='Activo')
     empleados  = Empleado.objects.all()
+    contexto = {'asignacion': asignacion, 'equipos': equipos, 'empleados': empleados}
     if request.method == 'POST':
-        asignacion.equipo_id        = request.POST['equipo']
-        asignacion.empleado_id      = request.POST['empleado']
-        asignacion.fecha_asignacion = request.POST['fecha_asignacion']
+        equipo_id   = request.POST.get('equipo')
+        empleado_id = request.POST.get('empleado')
+        estatus     = request.POST.get('estatus')
+
+        if not equipo_id or not empleado_id or estatus not in Asignacion.EstatusAsignacion.values:
+            messages.error(request, 'Debe seleccionar equipo, empleado y un estatus válido.')
+            return render(request, 'ti/asignaciones/editar.html', contexto)
+
+        if estatus == Asignacion.EstatusAsignacion.ASIGNADO and Asignacion.objects.filter(
+            equipo_id=equipo_id, estatus=Asignacion.EstatusAsignacion.ASIGNADO
+        ).exclude(pk=asignacion.pk).exists():
+            messages.error(
+                request,
+                'Ese equipo ya está asignado a otra persona. Registra primero su devolución.'
+            )
+            return render(request, 'ti/asignaciones/editar.html', contexto)
+
+        asignacion.equipo_id        = equipo_id
+        asignacion.empleado_id      = empleado_id
+        asignacion.fecha_asignacion = request.POST.get('fecha_asignacion') or asignacion.fecha_asignacion
         asignacion.fecha_devolucion = request.POST.get('fecha_devolucion') or None
         asignacion.entregado_por    = request.POST.get('entregado_por', '')
-        asignacion.estatus = request.POST.get('estatus')
+        asignacion.estatus = estatus
 
         # Cada archivo es independiente: si no se sube uno nuevo, se conserva
         # el que ya estaba; si se marca su checkbox de "eliminar", se borra
@@ -294,11 +372,7 @@ def asignacion_editar(request, pk):
         asignacion.save()
         messages.success(request, 'Asignación actualizada correctamente.')
         return redirect('asignaciones_lista')
-    return render(request, 'ti/asignaciones/editar.html', {
-        'asignacion': asignacion,
-        'equipos':    equipos,
-        'empleados':  empleados,
-    })
+    return render(request, 'ti/asignaciones/editar.html', contexto)
 
 
 @never_cache

@@ -10,17 +10,30 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+try:
+    from dotenv import load_dotenv
+except ImportError:  # python-dotenv es opcional en desarrollo
+    load_dotenv = None
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Carga las variables del archivo .env (si existe) ANTES de leer la configuración.
+if load_dotenv:
+    load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-_x!5gskezxoxt$s&@t%#mfx!d-@9r6$2ma=gvc7jv$csw0)zm1'
+# En producción (settings_prod) la clave es OBLIGATORIA vía variable de entorno.
+# Este valor solo existe para desarrollo local; la clave anterior ya estuvo en el código
+# compartido, así que debe considerarse comprometida y NO reutilizarse.
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-solo-desarrollo-local-cambiar')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 
@@ -52,6 +65,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'config.middleware.AccesoPorDepartamentoMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -82,11 +96,11 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'erp_servicios',
-        'USER': 'root',
-        'PASSWORD': '',
-        'HOST': 'localhost',
-        'PORT': '3306',
+        'NAME': os.environ.get('DB_NAME', 'erp_servicios'),
+        'USER': os.environ.get('DB_USER', 'root'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DB_PORT', '3306'),
         'OPTIONS': {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
         },
@@ -118,7 +132,8 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'es'
 
-TIME_ZONE = 'UTC'
+# Ciudad del Carmen, Campeche (UTC-6, sin horario de verano).
+TIME_ZONE = 'America/Merida'
 
 USE_I18N = True
 
@@ -152,4 +167,39 @@ from django.contrib.messages import constants as messages_constants
 
 MESSAGE_TAGS = {
     messages_constants.ERROR: 'danger',
+}
+
+# ---------------------------------------------------------------------------
+# Control de acceso por departamento (ver config/middleware.py)
+# Prefijo de URL -> departamentos de Empleado que pueden entrar.
+# Los superusuarios siempre tienen acceso.
+# ---------------------------------------------------------------------------
+ACCESO_POR_DEPARTAMENTO = {
+    '/finanzas/': {'CPF'},
+    '/ti/': {'CIT'},
+}
+
+# Subidas de archivos
+MAX_UPLOAD_MB = 30
+EXTENSIONES_PERMITIDAS = {'.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx', '.xls', '.xlsx'}
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # no aplica a archivos, sí a campos POST
+
+# Si es True, los archivos de /media/ se sirven vía X-Accel-Redirect de Nginx
+# (ver README_CAMBIOS.md). Si es False, Django los entrega directamente.
+USE_X_ACCEL_REDIRECT = os.environ.get('USE_X_ACCEL_REDIRECT', 'False') == 'True'
+
+# API externa de tickets (dashboard de TI)
+TICKETS_API_URL = os.environ.get('TICKETS_API_URL', 'https://jesusaav4.pythonanywhere.com/api/tickets')
+TICKETS_API_CACHE_SECONDS = 120
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'simple': {'format': '{asctime} {levelname} {name}: {message}', 'style': '{'},
+    },
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler', 'formatter': 'simple'},
+    },
+    'root': {'handlers': ['console'], 'level': 'INFO'},
 }
