@@ -33,7 +33,12 @@ if load_dotenv:
 # En producción (settings_prod) la clave es OBLIGATORIA vía variable de entorno.
 # Este valor solo existe para desarrollo local; la clave anterior ya estuvo en el código
 # compartido, así que debe considerarse comprometida y NO reutilizarse.
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-solo-desarrollo-local-cambiar')
+SECRET_KEY = os.environ.get("SECRET_KEY")
+
+if not SECRET_KEY:
+    raise RuntimeError(
+        "Falta SECRET_KEY. Configúrala en el archivo .env o en el entorno."
+    )
 
 # SECURITY WARNING: don't run with debug turned on in production!
 
