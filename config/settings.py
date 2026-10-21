@@ -40,6 +40,14 @@ if not SECRET_KEY:
         "Falta SECRET_KEY. Configúrala en el archivo .env o en el entorno."
     )
 
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get(
+        "ALLOWED_HOSTS", "127.0.0.1,localhost"
+    ).split(",")
+    if host.strip()
+]
+
 # SECURITY WARNING: don't run with debug turned on in production!
 
 # Application definition
