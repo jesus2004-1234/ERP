@@ -188,8 +188,8 @@ MESSAGE_TAGS = {
 # Los superusuarios siempre tienen acceso.
 # ---------------------------------------------------------------------------
 ACCESO_POR_DEPARTAMENTO = {
-    '/finanzas/': {'CPF', 'GAF', 'DGE'},
-    '/ti/': {'CIT', 'DGE'},
+    '/finanzas/': {'CPF'},
+    '/ti/': {'CIT'},
 }
 
 # Subidas de archivos
