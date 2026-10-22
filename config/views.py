@@ -51,6 +51,12 @@ def dashboard(request):
 MEDIA_PERMISOS = {
     "finanzas/": "/finanzas/",
     "ti/": "/ti/",
+    "documentos/ccc/": "CCC",
+    "documentos/cpf/": "CPF",
+    "documentos/cit/": "CIT",
+    "documentos/chg/": "CHG",
+    "documentos/gop/": "GOP",
+    "documentos/gaf/": "GAF",
 }
 
 
@@ -69,11 +75,29 @@ def media_protegida(request, ruta):
     if not os.path.isfile(ruta_abs):
         raise Http404
 
-    for carpeta, prefijo_url in MEDIA_PERMISOS.items():
-        if ruta.startswith(carpeta) and not usuario_puede_acceder(request.user, prefijo_url):
+   
+    
+    for carpeta, permiso in MEDIA_PERMISOS.items():
+        if not ruta.startswith(carpeta):
+            continue
+
+        if request.user.is_superuser:
+            break
+
+        if permiso.startswith("/"):
+            permitido = usuario_puede_acceder(request.user, permiso)
+        else:
+            empleado = getattr(request.user, "empleado", None)
+            permitido = bool(
+                empleado and empleado.departamento == permiso
+            )
+
+        if not permitido:
             from django.core.exceptions import PermissionDenied
             raise PermissionDenied
 
+        break
+    
     tipo, _ = mimetypes.guess_type(ruta_abs)
     tipo = tipo or "application/octet-stream"
 
