@@ -275,8 +275,6 @@ class SubidaYMediaTests(BaseFinanzasTest):
         r = self.client.get("/media/finanzas/expedientes/2026/07/ine.pdf")
         self.assertEqual(r.status_code, 200)
         self.assertEqual(b"".join(r.streaming_content), b"%PDF-1.4 secreto")
-
-        
     def test_documento_cpf_denegado_a_usuario_cit(self):
         self._crear_archivo("documentos/cpf/ine.pdf")
         self.client.login(username="cit", password="x")

@@ -74,9 +74,6 @@ def media_protegida(request, ruta):
 
     if not os.path.isfile(ruta_abs):
         raise Http404
-
-   
-    
     for carpeta, permiso in MEDIA_PERMISOS.items():
         if not ruta.startswith(carpeta):
             continue
@@ -97,10 +94,9 @@ def media_protegida(request, ruta):
             raise PermissionDenied
 
         break
-    
+
     tipo, _ = mimetypes.guess_type(ruta_abs)
     tipo = tipo or "application/octet-stream"
-
     if settings.USE_X_ACCEL_REDIRECT:
         respuesta = HttpResponse(content_type=tipo)
         respuesta["X-Accel-Redirect"] = "/protected_media/" + ruta.lstrip("/")
