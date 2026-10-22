@@ -1043,19 +1043,15 @@ def factura_editar(request, pk):
 @login_required
 @never_cache
 def factura_cancelar(request, pk):
-
     factura = get_object_or_404(
         FacturaCliente.objects.select_related("expediente"),
-        pk=pk
+        pk=pk,
     )
 
     if factura.estatus == FacturaCliente.Estatus.CANCELADA:
         messages.info(request, "Esta factura ya está cancelada.")
         return redirect("factura_detalle", pk=pk)
 
-    # No se cancela una factura que ya tiene dinero cobrado: eso dejaría un
-    # pago sin factura activa asociada. Primero hay que resolver/eliminar
-    # esos pagos (punto pendiente aparte).
     if factura.total_pagado > 0:
         messages.error(
             request,
@@ -1065,20 +1061,38 @@ def factura_cancelar(request, pk):
         return redirect("factura_detalle", pk=pk)
 
     if request.method == "POST":
-        factura.estatus = FacturaCliente.Estatus.CANCELADA
-        factura.save(update_fields=["estatus"])
+        with transaction.atomic():
+            factura = get_object_or_404(
+                FacturaCliente.objects.select_for_update(),
+                pk=pk,
+            )
+
+            if factura.estatus == FacturaCliente.Estatus.CANCELADA:
+                messages.info(request, "Esta factura ya está cancelada.")
+                return redirect("factura_detalle", pk=pk)
+
+            total_pagado = factura.total_pagado
+
+            if total_pagado > 0:
+                messages.error(
+                    request,
+                    "No se puede cancelar una factura que ya tiene pagos "
+                    f"registrados (${total_pagado}). Elimine o ajuste "
+                    "los pagos primero."
+                )
+                return redirect("factura_detalle", pk=pk)
+
+            factura.estatus = FacturaCliente.Estatus.CANCELADA
+            factura.save(update_fields=["estatus"])
 
         messages.success(request, "Factura cancelada correctamente.")
-
         return redirect("factura_detalle", pk=pk)
 
-    # GET: página de confirmación, mismo patrón que expediente_eliminar.
     return render(
         request,
         "finanzas/cxc/cancelar.html",
-        {"factura": factura}
+        {"factura": factura},
     )
-
 
 # =====================================================
 # EDITAR PAGO (CxC)
@@ -1168,18 +1182,23 @@ def pago_eliminar(request, pk):
         return redirect("factura_detalle", pk=factura.pk)
 
     if request.method == "POST":
+        with transaction.atomic():
+            factura = get_object_or_404(FacturaCliente.objects.select_for_update(), pk=pago.factura_id)
 
-        # PagoCliente.delete() recalcula el estatus de la factura (igual que PagoProveedor).
-        pago.delete()
+            if factura.estatus == FacturaCliente.Estatus.CANCELADA:
+                messages.error(request, "No se pueden eliminar pagos de una factura cancelada.")
+                return redirect("factura_detalle", pk=factura.pk)
+
+            pago = get_object_or_404(PagoCliente.objects.select_for_update(), pk=pk, factura=factura,)
+
+            pago.delete()
 
         messages.success(request, "Pago eliminado correctamente.")
-
         return redirect("factura_detalle", pk=factura.pk)
-
     return render(
         request,
         "finanzas/cxc/pago_eliminar.html",
-        {"pago": pago, "factura": factura}
+        {"pago": pago, "factura": factura},
     )
 
 @never_cache
@@ -1974,18 +1993,28 @@ def factura_proveedor_cancelar(request, pk):
         return redirect("factura_proveedor_detalle", pk=pk)
 
     if request.method == "POST":
-        factura.estatus = FacturaProveedor.Estatus.CANCELADA
-        factura.save(update_fields=["estatus"])
+        with transaction.atomic():
+            factura = get_object_or_404(FacturaProveedor.objects.select_for_update(), pk=pk)
+
+            if factura.estatus == FacturaProveedor.Estatus.CANCELADA:
+                messages.info(request, "Esta factura ya está cancelada.")
+                return redirect("factura_proveedor_detalle", pk=pk)
+
+            total_pagado = factura.total_pagado
+
+            if total_pagado > 0:
+                messages.error(
+                    request,
+                    "No se puede cancelar una factura que ya tiene pagos registrados "
+                    f"(${total_pagado}). Elimine o ajuste los pagos primero."
+                )
+                return redirect("factura_proveedor_detalle", pk=pk)
+
+            factura.estatus = FacturaProveedor.Estatus.CANCELADA
+            factura.save(update_fields=["estatus"])
 
         messages.success(request, "Factura cancelada correctamente.")
-
         return redirect("factura_proveedor_detalle", pk=pk)
-
-    return render(
-        request,
-        "finanzas/cxp/cancelar.html",
-        {"factura": factura}
-    )
 
 @login_required
 @never_cache
@@ -2125,13 +2154,18 @@ def pago_proveedor_eliminar(request, pk):
         return redirect("factura_proveedor_detalle", pk=factura.pk)
 
     if request.method == "POST":
+        with transaction.atomic():
+            factura = get_object_or_404(FacturaProveedor.objects.select_for_update(), pk=pago.factura_id,)
 
-        # PagoProveedor.delete() ya llama internamente a
-        # factura.actualizar_estatus(), a diferencia de PagoCliente.
-        pago.delete()
+            if factura.estatus == FacturaProveedor.Estatus.CANCELADA:
+                messages.error(request, "No se pueden eliminar pagos de una factura cancelada.")
+                return redirect("factura_proveedor_detalle", pk=factura.pk)
+
+            pago = get_object_or_404(PagoProveedor.objects.select_for_update(), pk=pk, factura=factura)
+
+            pago.delete()
 
         messages.success(request, "Pago eliminado correctamente.")
-
         return redirect("factura_proveedor_detalle", pk=factura.pk)
 
     return render(

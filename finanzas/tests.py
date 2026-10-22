@@ -275,6 +275,42 @@ class SubidaYMediaTests(BaseFinanzasTest):
         r = self.client.get("/media/finanzas/expedientes/2026/07/ine.pdf")
         self.assertEqual(r.status_code, 200)
         self.assertEqual(b"".join(r.streaming_content), b"%PDF-1.4 secreto")
+    def test_documento_cpf_denegado_a_usuario_cit(self):
+        self._crear_archivo("documentos/cpf/ine.pdf")
+        self.client.login(username="cit", password="x")
+
+        r = self.client.get("/media/documentos/cpf/ine.pdf")
+
+        self.assertEqual(r.status_code, 403)
+
+    def test_documento_cpf_permitido_a_usuario_cpf(self):
+        self._crear_archivo("documentos/cpf/ine.pdf")
+        self.client.login(username="cpf", password="x")
+
+        r = self.client.get("/media/documentos/cpf/ine.pdf")
+
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(
+            b"".join(r.streaming_content),
+            b"%PDF-1.4 secreto",
+        )
+
+    def test_documento_chg_denegado_a_usuario_cpf(self):
+        self._crear_archivo("documentos/chg/contrato.pdf")
+        self.client.login(username="cpf", password="x")
+
+        r = self.client.get("/media/documentos/chg/contrato.pdf")
+
+        self.assertEqual(r.status_code, 403)
+
+    def test_documento_cit_denegado_a_usuario_cpf(self):
+        self._crear_archivo("documentos/cit/manual.pdf")
+        self.client.login(username="cpf", password="x")
+
+        r = self.client.get("/media/documentos/cit/manual.pdf")
+
+        self.assertEqual(r.status_code, 403)
+
 
     def test_media_bloquea_path_traversal(self):
         self.client.login(username="admin", password="x")
