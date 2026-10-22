@@ -63,10 +63,13 @@ MEDIA_PERMISOS = {
 @login_required
 def media_protegida(request, ruta):
     """
-    Entrega los archivos de /media/ solo a usuarios con permiso sobre su módulo.
-    Antes /media/ quedaba abierto a cualquiera que conociera la URL (INE, poderes
-    notariales, constancias fiscales...).
+    Entrega archivos de media solo a usuarios autenticados con permiso
+    sobre el módulo correspondiente.
+
+    Las rutas sin una regla explícita en MEDIA_PERMISOS se rechazan.
     """
+    from django.core.exceptions import PermissionDenied
+
     try:
         ruta_abs = safe_join(settings.MEDIA_ROOT, ruta)
     except Exception:
@@ -74,9 +77,14 @@ def media_protegida(request, ruta):
 
     if not os.path.isfile(ruta_abs):
         raise Http404
+
+    regla_encontrada = False
+
     for carpeta, permiso in MEDIA_PERMISOS.items():
         if not ruta.startswith(carpeta):
             continue
+
+        regla_encontrada = True
 
         if request.user.is_superuser:
             break
@@ -90,16 +98,24 @@ def media_protegida(request, ruta):
             )
 
         if not permitido:
-            from django.core.exceptions import PermissionDenied
             raise PermissionDenied
 
         break
 
+    if not regla_encontrada:
+        raise PermissionDenied
+
     tipo, _ = mimetypes.guess_type(ruta_abs)
     tipo = tipo or "application/octet-stream"
+
     if settings.USE_X_ACCEL_REDIRECT:
         respuesta = HttpResponse(content_type=tipo)
-        respuesta["X-Accel-Redirect"] = "/protected_media/" + ruta.lstrip("/")
+        respuesta["X-Accel-Redirect"] = (
+            "/protected_media/" + ruta.lstrip("/")
+        )
         return respuesta
 
-    return FileResponse(open(ruta_abs, "rb"), content_type=tipo)
+    return FileResponse(
+        open(ruta_abs, "rb"),
+        content_type=tipo,
+    )
