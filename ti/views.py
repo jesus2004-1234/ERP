@@ -6,12 +6,16 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Count, ProtectedError
 from django.shortcuts import render, get_object_or_404, redirect
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
 
+from .forms import (
+    AsignacionForm, ConsumibleForm, CorreoForm, EmpleadoForm, EquipoForm, MantenimientoForm,
+)
 from .models import Empleado, Equipo, Consumible, Mantenimiento, Asignacion, Correos
 
 logger = logging.getLogger(__name__)
@@ -41,6 +45,16 @@ def _obtener_tickets():
 
     cache.set(TICKETS_CACHE_KEY, tickets, settings.TICKETS_API_CACHE_SECONDS)
     return tickets
+
+
+def _errores_a_mensajes(request, form):
+    """Muestra los errores de validación de un formulario como mensajes de la página."""
+    for campo, errores in form.errors.items():
+        etiqueta = ''
+        if campo in form.fields:
+            etiqueta = f'{form.fields[campo].label or campo}: '
+        for error in errores:
+            messages.error(request, f'{etiqueta}{error}')
 
 
 @never_cache
@@ -126,14 +140,13 @@ def empleados_lista(request):
 @login_required
 def empleado_crear(request):
     if request.method == 'POST':
-        Empleado.objects.create(
-            nombre=request.POST['nombre'],
-            apellido=request.POST['apellido'],
-            departamento=request.POST['departamento'],
-        )
-        messages.success(request, 'Empleado creado correctamente.')
-        return redirect('empleados_lista')
-    return render(request, 'ti/empleados/crear.html', {'departamentos':Empleado.Departamento.choices,})
+        form = EmpleadoForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Empleado creado correctamente.')
+            return redirect('empleados_lista')
+        _errores_a_mensajes(request, form)
+    return render(request, 'ti/empleados/crear.html', {'departamentos': Empleado.Departamento.choices})
 
 
 @never_cache
@@ -141,13 +154,13 @@ def empleado_crear(request):
 def empleado_editar(request, pk):
     empleado = get_object_or_404(Empleado, pk=pk)
     if request.method == 'POST':
-        empleado.nombre             = request.POST['nombre']
-        empleado.apellido           = request.POST['apellido']
-        empleado.departamento       = request.POST['departamento']
-        empleado.save()
-        messages.success(request, 'Empleado actualizado correctamente.')
-        return redirect('empleados_lista')
-    return render(request, 'ti/empleados/editar.html', {'empleado': empleado, 'departamentos':Empleado.Departamento.choices,})
+        form = EmpleadoForm(request.POST, instance=empleado)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Empleado actualizado correctamente.')
+            return redirect('empleados_lista')
+        _errores_a_mensajes(request, form)
+    return render(request, 'ti/empleados/editar.html', {'empleado': empleado, 'departamentos': Empleado.Departamento.choices})
 
 
 @never_cache
@@ -202,17 +215,12 @@ def equipos_lista(request):
 def equipo_crear(request):
     empleados = Empleado.objects.all()
     if request.method == 'POST':
-        Equipo.objects.create(
-            tipo=request.POST['tipo'],
-            marca=request.POST['marca'],
-            modelo=request.POST['modelo'],
-            numero_serie=request.POST['numero_serie'],
-            sistema_operativo=request.POST.get('sistema_operativo', ''),
-            estatus=request.POST['estatus'],
-
-        )
-        messages.success(request, 'Equipo creado correctamente.')
-        return redirect('equipos_lista')
+        form = EquipoForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Equipo creado correctamente.')
+            return redirect('equipos_lista')
+        _errores_a_mensajes(request, form)
     return render(request, 'ti/equipos/crear.html', {'empleados': empleados})
 
 
@@ -222,15 +230,12 @@ def equipo_editar(request, pk):
     equipo    = get_object_or_404(Equipo, pk=pk)
     empleados = Empleado.objects.all()
     if request.method == 'POST':
-        equipo.tipo              = request.POST['tipo']
-        equipo.marca             = request.POST['marca']
-        equipo.modelo            = request.POST['modelo']
-        equipo.numero_serie      = request.POST['numero_serie']
-        equipo.sistema_operativo = request.POST.get('sistema_operativo', '')
-        equipo.estatus           = request.POST['estatus']
-        equipo.save()
-        messages.success(request, 'Equipo actualizado correctamente.')
-        return redirect('equipos_lista')
+        form = EquipoForm(request.POST, instance=equipo)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Equipo actualizado correctamente.')
+            return redirect('equipos_lista')
+        _errores_a_mensajes(request, form)
     return render(request, 'ti/equipos/editar.html', {'equipo': equipo, 'empleados': empleados})
 
 
@@ -285,38 +290,19 @@ def asignacion_crear(request):
     empleados = Empleado.objects.all()
     contexto = {'equipos': equipos, 'empleados': empleados}
     if request.method == 'POST':
-        equipo_id   = request.POST.get('equipo')
-        empleado_id = request.POST.get('empleado')
-        estatus     = request.POST.get('estatus')
-
-        if not equipo_id or not empleado_id or estatus not in Asignacion.EstatusAsignacion.values:
-            messages.error(request, 'Debe seleccionar equipo, empleado y un estatus válido.')
-            return render(request, 'ti/asignaciones/crear.html', contexto)
-
-        # Un equipo no puede estar asignado a dos personas a la vez.
-        if estatus == Asignacion.EstatusAsignacion.ASIGNADO and Asignacion.objects.filter(
-            equipo_id=equipo_id, estatus=Asignacion.EstatusAsignacion.ASIGNADO
-        ).exists():
-            messages.error(
-                request,
-                'Ese equipo ya está asignado actualmente. Registra primero su devolución.'
-            )
-            return render(request, 'ti/asignaciones/crear.html', contexto)
-
-        # request.FILES.get(...) porque ambos archivos son opcionales: una
-        # asignación puede crearse sin acta adjunta todavía, y normalmente
-        # la de devolución se sube después, al editar.
-        Asignacion.objects.create(
-            equipo_id=equipo_id,
-            empleado_id=empleado_id,
-            fecha_devolucion=request.POST.get('fecha_devolucion') or None,
-            estatus=estatus,
-            entregado_por=request.POST.get('entregado_por', ''),
-            archivo_resguardo=request.FILES.get('archivo_resguardo'),
-            archivo_devolucion=request.FILES.get('archivo_devolucion'),
-        )
-        messages.success(request, 'Asignación creada correctamente.')
-        return redirect('asignaciones_lista')
+        form = AsignacionForm(request.POST, request.FILES)
+        if form.is_valid():
+            try:
+                form.guardar()
+            except ValidationError as error:
+                # Equipo ya asignado (revisado dentro de la transacción con el equipo bloqueado).
+                for mensaje in error.messages:
+                    messages.error(request, mensaje)
+            else:
+                messages.success(request, 'Asignación creada correctamente.')
+                return redirect('asignaciones_lista')
+        else:
+            _errores_a_mensajes(request, form)
     return render(request, 'ti/asignaciones/crear.html', contexto)
 
 
@@ -328,50 +314,18 @@ def asignacion_editar(request, pk):
     empleados  = Empleado.objects.all()
     contexto = {'asignacion': asignacion, 'equipos': equipos, 'empleados': empleados}
     if request.method == 'POST':
-        equipo_id   = request.POST.get('equipo')
-        empleado_id = request.POST.get('empleado')
-        estatus     = request.POST.get('estatus')
-
-        if not equipo_id or not empleado_id or estatus not in Asignacion.EstatusAsignacion.values:
-            messages.error(request, 'Debe seleccionar equipo, empleado y un estatus válido.')
-            return render(request, 'ti/asignaciones/editar.html', contexto)
-
-        if estatus == Asignacion.EstatusAsignacion.ASIGNADO and Asignacion.objects.filter(
-            equipo_id=equipo_id, estatus=Asignacion.EstatusAsignacion.ASIGNADO
-        ).exclude(pk=asignacion.pk).exists():
-            messages.error(
-                request,
-                'Ese equipo ya está asignado a otra persona. Registra primero su devolución.'
-            )
-            return render(request, 'ti/asignaciones/editar.html', contexto)
-
-        asignacion.equipo_id        = equipo_id
-        asignacion.empleado_id      = empleado_id
-        asignacion.fecha_asignacion = request.POST.get('fecha_asignacion') or asignacion.fecha_asignacion
-        asignacion.fecha_devolucion = request.POST.get('fecha_devolucion') or None
-        asignacion.entregado_por    = request.POST.get('entregado_por', '')
-        asignacion.estatus = estatus
-
-        # Cada archivo es independiente: si no se sube uno nuevo, se conserva
-        # el que ya estaba; si se marca su checkbox de "eliminar", se borra
-        # sin necesidad de subir uno nuevo en su lugar.
-        nuevo_resguardo = request.FILES.get('archivo_resguardo')
-        if nuevo_resguardo:
-            asignacion.archivo_resguardo = nuevo_resguardo
-        elif request.POST.get('eliminar_archivo_resguardo'):
-            asignacion.archivo_resguardo.delete(save=False)
-            asignacion.archivo_resguardo = None
-
-        nueva_devolucion = request.FILES.get('archivo_devolucion')
-        if nueva_devolucion:
-            asignacion.archivo_devolucion = nueva_devolucion
-        elif request.POST.get('eliminar_archivo_devolucion'):
-            asignacion.archivo_devolucion.delete(save=False)
-            asignacion.archivo_devolucion = None
-
-        asignacion.save()
-        messages.success(request, 'Asignación actualizada correctamente.')
-        return redirect('asignaciones_lista')
+        form = AsignacionForm(request.POST, request.FILES, instance=asignacion)
+        if form.is_valid():
+            try:
+                form.guardar()
+            except ValidationError as error:
+                for mensaje in error.messages:
+                    messages.error(request, mensaje)
+            else:
+                messages.success(request, 'Asignación actualizada correctamente.')
+                return redirect('asignaciones_lista')
+        else:
+            _errores_a_mensajes(request, form)
     return render(request, 'ti/asignaciones/editar.html', contexto)
 
 
@@ -419,16 +373,12 @@ def mantenimientos_lista(request):
 def mantenimiento_crear(request):
     equipos = Equipo.objects.all()
     if request.method == 'POST':
-        Mantenimiento.objects.create(
-            equipo_id=request.POST['equipo'],
-            tipo=request.POST['tipo'],
-            descripcion=request.POST.get('descripcion', ''),
-            ultima_fecha_mantenimiento=request.POST.get('ultima_fecha_mantenimiento') or None,
-            proxima_fecha_mantenimiento=request.POST.get('proxima_fecha_mantenimiento') or None,
-            realizado_por=request.POST.get('realizado_por', ''),
-        )
-        messages.success(request, 'Mantenimiento registrado correctamente.')
-        return redirect('mantenimientos_lista')
+        form = MantenimientoForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Mantenimiento registrado correctamente.')
+            return redirect('mantenimientos_lista')
+        _errores_a_mensajes(request, form)
     return render(request, 'ti/mantenimientos/crear.html', {'equipos': equipos})
 
 
@@ -438,15 +388,12 @@ def mantenimiento_editar(request, pk):
     mantenimiento = get_object_or_404(Mantenimiento, pk=pk)
     equipos       = Equipo.objects.all()
     if request.method == 'POST':
-        mantenimiento.equipo_id                   = request.POST['equipo']
-        mantenimiento.tipo                        = request.POST['tipo']
-        mantenimiento.descripcion                 = request.POST.get('descripcion', '')
-        mantenimiento.ultima_fecha_mantenimiento  = request.POST.get('ultima_fecha_mantenimiento') or None
-        mantenimiento.proxima_fecha_mantenimiento = request.POST.get('proxima_fecha_mantenimiento') or None
-        mantenimiento.realizado_por               = request.POST.get('realizado_por', '')
-        mantenimiento.save()
-        messages.success(request, 'Mantenimiento actualizado correctamente.')
-        return redirect('mantenimientos_lista')
+        form = MantenimientoForm(request.POST, instance=mantenimiento)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Mantenimiento actualizado correctamente.')
+            return redirect('mantenimientos_lista')
+        _errores_a_mensajes(request, form)
     return render(request, 'ti/mantenimientos/editar.html', {'mantenimiento': mantenimiento, 'equipos': equipos})
 
 
@@ -494,15 +441,12 @@ def correos_lista(request):
 def correo_crear(request):
     empleados = Empleado.objects.all()
     if request.method == 'POST':
-        Correos.objects.create(
-            tipo=request.POST.get('tipo', 'Correo'),
-            empleado_id=request.POST.get('empleado') or None,
-            correo_asignado=request.POST['correo_asignado'],
-            estatus=request.POST['estatus'],
-            observaciones=request.POST.get('observaciones', ''),
-        )
-        messages.success(request, 'Registro creado correctamente.')
-        return redirect('correos_lista')
+        form = CorreoForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Registro creado correctamente.')
+            return redirect('correos_lista')
+        _errores_a_mensajes(request, form)
     return render(request, 'ti/correos/crear.html', {'empleados': empleados})
 
 
@@ -512,14 +456,12 @@ def correo_editar(request, pk):
     correo    = get_object_or_404(Correos, pk=pk)
     empleados = Empleado.objects.all()
     if request.method == 'POST':
-        correo.tipo            = request.POST.get('tipo', 'Correo')
-        correo.empleado_id     = request.POST.get('empleado') or None
-        correo.correo_asignado = request.POST['correo_asignado']
-        correo.estatus         = request.POST['estatus']
-        correo.observaciones   = request.POST.get('observaciones', '')
-        correo.save()
-        messages.success(request, 'Registro actualizado correctamente.')
-        return redirect('correos_lista')
+        form = CorreoForm(request.POST, instance=correo)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Registro actualizado correctamente.')
+            return redirect('correos_lista')
+        _errores_a_mensajes(request, form)
     return render(request, 'ti/correos/editar.html', {'correo': correo, 'empleados': empleados})
 
 
@@ -567,15 +509,12 @@ def consumibles_lista(request):
 @login_required
 def consumible_crear(request):
     if request.method == 'POST':
-        Consumible.objects.create(
-            nombre=request.POST['nombre'],
-            categoria=request.POST['categoria'],
-            descripcion=request.POST.get('descripcion', ''),
-            stock_actual=request.POST['stock_actual'],
-            unidad_medida=request.POST.get('unidad_medida', ''),
-        )
-        messages.success(request, 'Consumible registrado correctamente.')
-        return redirect('consumibles_lista')
+        form = ConsumibleForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Consumible registrado correctamente.')
+            return redirect('consumibles_lista')
+        _errores_a_mensajes(request, form)
     return render(request, 'ti/consumibles/crear.html')
 
 
@@ -584,14 +523,12 @@ def consumible_crear(request):
 def consumible_editar(request, pk):
     consumible = get_object_or_404(Consumible, pk=pk)
     if request.method == 'POST':
-        consumible.nombre         = request.POST['nombre']
-        consumible.categoria      = request.POST['categoria']
-        consumible.descripcion    = request.POST.get('descripcion', '')
-        consumible.stock_actual   = request.POST['stock_actual']
-        consumible.unidad_medida  = request.POST.get('unidad_medida', '')
-        consumible.save()
-        messages.success(request, 'Consumible actualizado correctamente.')
-        return redirect('consumibles_lista')
+        form = ConsumibleForm(request.POST, instance=consumible)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Consumible actualizado correctamente.')
+            return redirect('consumibles_lista')
+        _errores_a_mensajes(request, form)
     return render(request, 'ti/consumibles/editar.html', {'consumible': consumible})
 
 
